@@ -19,6 +19,7 @@ Release sanity for the Companion AI Lookbook prototype:
 - Real local AI browser click-through: passed with `QA_REAL_AI=1 QA_URL=http://127.0.0.1:4173/ npm run qa:browser`.
 - Curated style inventory: passed with 25 male styles, 25 female styles, 10 male day surprises and 10 female day surprises.
 - Curated Lookbook library: passed. Lookbook screen shows 50 occasion ideas, male and female lanes, and 100 Create Lookbook controls.
+- Curated style routing: passed. All 50 curated style definitions route to a real catalogue PDP for their intended gender lane.
 - Pre-upload state: passed. No model image is visible before upload.
 - Gallery state: passed. Mobile-style gallery opens and includes the real model tile plus device upload.
 - Upload state: passed. Upload unlocks suggested products and does not auto-trigger Surprise Me.
@@ -31,6 +32,7 @@ Release sanity for the Companion AI Lookbook prototype:
 - Naming QA: passed. The user-facing app now uses AI Lookbook, Lookbook Studio, Create Lookbook, Saved Looks and Lookbook nav copy.
 - Try Another: passed. The result state resets for a fresh journey.
 - Local Vertex status: passed. Credentials are present server-side, analysis is enabled, try-on is enabled.
+- Local Vertex image analysis: passed. `/api/analyze-upload-image` read the real model stadium image as a male/casual catalogue lane and returned a recommendation note.
 - Local Vertex Lookbook image creation: passed. `/api/generate-tryon-image` returned `mode: "vertex-try-on"`, `status: "done"` and a generated image payload.
 - Browser real-AI state: passed. The UI completed upload, style read, PDP, Create Lookbook, Vertex-generated image result, video preview, Lookbook library, female PDP route and Bag update.
 - Local video endpoint: wired. It returns mock-ready until `VERTEX_ENABLE_VIDEO=true` and `VERTEX_OUTPUT_GCS_URI` are configured.

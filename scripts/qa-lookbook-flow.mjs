@@ -12,6 +12,7 @@ globalThis.__qa = {
   copyPromptToClipboard,
   createLookbookFromStyle,
   curatedStyleCounts,
+  curatedLookbookStyles,
   generateLookbookVideo,
   openGallery,
   pickSize,
@@ -104,6 +105,8 @@ assert(qa.curatedStyleCounts.male === 25, "Expected 25 male curated styles");
 assert(qa.curatedStyleCounts.female === 25, "Expected 25 female curated styles");
 assert(qa.curatedStyleCounts.maleSurprises === 10, "Expected 10 male daily surprises");
 assert(qa.curatedStyleCounts.femaleSurprises === 10, "Expected 10 female daily surprises");
+assert(qa.curatedLookbookStyles.length === 50, "Expected 50 total curated style definitions");
+assert(new Set(qa.curatedLookbookStyles.map((style) => style.id)).size === 50, "Curated style IDs must be unique");
 assert(currentHtml.includes("AI Lookbook"), "Home must expose AI Lookbook");
 noOldNames();
 
@@ -182,6 +185,13 @@ assert(qa.state.selectedGender === "female", "Library style must set female lane
 assert(qa.state.selectedId !== qa.previewProductId, "Library style must anchor to a real catalogue PDP");
 noOldNames();
 
+for (const style of qa.curatedLookbookStyles) {
+  qa.createLookbookFromStyle(style.id);
+  assert(qa.state.route === "pdp", `Style ${style.id} must route to PDP`);
+  assert(qa.state.selectedGender === style.gender, `Style ${style.id} must keep its gender lane`);
+  assert(qa.state.selectedId !== qa.previewProductId, `Style ${style.id} must map to a catalogue product`);
+}
+
 qa.resetTryOnFlow();
 qa.createLookbookFromStyle("male-brunch-denim-reset");
 assert(qa.state.route === "tryon", "Create Lookbook before upload must return to upload screen");
@@ -214,6 +224,7 @@ console.log(JSON.stringify({
     "50-style curated lookbook library",
     "library create-look guardrail",
     "library create-look PDP route",
+    "all 50 curated styles route to PDP",
     "lookbook remove",
     "female surprise lane",
   ],
