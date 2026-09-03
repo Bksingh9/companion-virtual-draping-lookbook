@@ -176,11 +176,13 @@ qa.selectGalleryTab("Favorites");
 assert(qa.visibleGalleryImages().length === 1, "Favorites tab must filter gallery");
 qa.selectGalleryTab("TRENDS");
 assert(qa.visibleGalleryImages().every((item) => item.id !== "real-model-stadium"), "TRENDS gallery tab must hide camera roll tile");
-qa.selectGalleryTab("Recents");
+	qa.selectGalleryTab("Recents");
 
-qa.selectGalleryImage("real-model-stadium");
-await tick();
-assert(qa.state.uploadConfirmed, "Upload must be confirmed");
+	qa.selectGalleryImage("real-model-stadium");
+	assert(currentHtml.includes("Reading your image"), "Upload analysis must show a visible loading read state");
+	assert(currentHtml.includes("mini-spinner"), "Upload analysis must include a loading spinner");
+	await tick();
+	assert(qa.state.uploadConfirmed, "Upload must be confirmed");
 assert(qa.state.selectedId === qa.previewProductId, "Upload must not preselect PDP");
 assert(currentHtml.includes("Style Read Complete"), "Style read must show after upload");
 assert(currentHtml.includes("Suggested Products Based On Upload"), "Suggestions must unlock after upload");
@@ -194,8 +196,11 @@ qa.pickSize("M");
 assert(qa.state.selectedSize === "M", "Size selection must update state");
 noOldNames();
 
-await qa.startProductDraping();
-assert(qa.state.route === "tryon", "Create Lookbook must return to result studio");
+	const createLookbookPromise = qa.startProductDraping();
+	assert(currentHtml.includes("Senior Stylist is creating this Lookbook"), "Create Lookbook must show a visible loading state");
+	assert(currentHtml.includes("loading-orbit"), "Create Lookbook loading state must include spinner markup");
+	await createLookbookPromise;
+	assert(qa.state.route === "tryon", "Create Lookbook must return to result studio");
 assert(qa.state.renderStatus === "rendered", "Create Lookbook must produce result");
 assert(qa.state.tryOnMode === "vertex-try-on", "Create Lookbook must use Vertex VTO mode");
 assert(qa.state.lookbookItems.length === 1, "Create Lookbook must save a Lookbook item");
@@ -207,7 +212,10 @@ qa.copyPromptToClipboard();
 assert(clipboardText.includes("TRENDS AI Senior Stylist"), "Copy Prompt must write reverse prompt");
 qa.shareCurrentLook();
 assert(shareCalls === 1, "Share action must invoke share sheet");
-await qa.generateLookbookVideo();
+	const videoPromise = qa.generateLookbookVideo();
+	assert(currentHtml.includes("Creating Lookbook Video"), "Video generation must show a visible loading state");
+	assert(currentHtml.includes("mini-spinner"), "Video generation button must include a spinner");
+	await videoPromise;
 assert(qa.state.videoStatus === "ready", "Lookbook video must become ready only from Veo");
 assert(qa.state.videoMode === "vertex", "Lookbook video must use Vertex mode");
 assert(qa.state.videoUrl.includes("/generated-videos/qa-lookbook.mp4"), "Lookbook video must expose a playable generated video URL");
@@ -272,6 +280,7 @@ console.log(JSON.stringify({
     "gallery selection",
     "suggested products",
     "PDP Create Lookbook",
+    "visible loading states",
     "saved Lookbook result",
     "Vertex VTO contract",
     "Veo video contract",

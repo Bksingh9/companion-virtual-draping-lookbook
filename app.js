@@ -1870,6 +1870,10 @@ function selectProduct(id) {
 }
 
 function startProductDraping() {
+  if (state.renderStatus === "rendering") {
+    flash("Lookbook creation is running");
+    return;
+  }
   if (!state.uploadConfirmed) {
     if (state.route !== "tryon") state.previousRoute = state.route;
     state.route = "tryon";
@@ -1899,6 +1903,10 @@ function startProductDraping() {
 }
 
 async function renderOnModel() {
+  if (state.renderStatus === "rendering") {
+    flash("Lookbook creation is running");
+    return;
+  }
   if (!state.uploadConfirmed) {
     openGallery();
     return;
@@ -2864,6 +2872,19 @@ function lookbookProgress(active = "upload") {
   `;
 }
 
+function loadingOrbit(title, detail = "", meta = "") {
+  return `
+    <div class="loading-orbit" role="status" aria-live="polite">
+      <i aria-hidden="true"></i>
+      <div>
+        <strong>${title}</strong>
+        ${detail ? `<span>${detail}</span>` : ""}
+        ${meta ? `<em>${meta}</em>` : ""}
+      </div>
+    </div>
+  `;
+}
+
 function stylistPanel(product, compact = false) {
   const style = selectedLookbookStyle();
   const prePdpSuggestion = state.route === "tryon" && state.selectedId === previewProductId && state.renderStatus !== "rendered";
@@ -2935,6 +2956,7 @@ function genderSwitch() {
 function autoSuggestPanel() {
   const style = selectedLookbookStyle();
   const dailyCount = dailySurpriseStylesForGender(state.selectedGender).length;
+  const isReading = state.autoSuggestStatus === "reading";
   const status = state.autoSuggestStatus === "reading"
     ? "Reading image"
     : state.autoSuggestStatus === "error"
@@ -2947,9 +2969,10 @@ function autoSuggestPanel() {
           <span>Auto Suggest</span>
           <h2>${genderLabel(state.selectedGender)} Lookbook Lane</h2>
         </div>
-        <strong>${status}</strong>
+        <strong class="${isReading ? "busy-label" : ""}">${isReading ? `<i class="mini-spinner" aria-hidden="true"></i>` : ""}${status}</strong>
       </div>
       <p>${state.autoSuggestNote || `${style.label} is selected. Choose a suggested catalogue PDP, or let me open the strongest PDP match for you.`}</p>
+      ${isReading ? loadingOrbit("Reading your image", "Checking catalogue lane, occasion and outfit direction.", "Usually 5 to 15 seconds") : ""}
       ${genderSwitch()}
       <div class="auto-suggest-metrics">
         <span><b>${genderStyles().length}</b> curated looks</span>
@@ -3065,7 +3088,7 @@ function resultActionPanel(product) {
       ${videoActive ? videoStatusPanel(product) : ""}
       <button class="wide-dark" data-action="add-to-bag">Add To Bag</button>
       <div class="action-grid">
-        <button data-action="generate-video">${state.videoStatus === "generating" || state.videoStatus === "running" ? "Creating..." : "Generate Lookbook Video"}</button>
+        <button class="${state.videoStatus === "generating" || state.videoStatus === "running" ? "button-busy" : ""}" data-action="generate-video">${state.videoStatus === "generating" || state.videoStatus === "running" ? `<i class="mini-spinner" aria-hidden="true"></i>Creating Video` : "Generate Lookbook Video"}</button>
         <button data-action="render">Recreate Look</button>
         <button data-action="share-look">Share</button>
         <button data-action="cast-tv">Cast TV</button>
@@ -3105,6 +3128,7 @@ function videoStatusPanel(product) {
         ` : `
           <img src="${currentRenderedImage(product)}" alt="${product.brand} ${product.name} video preview" />
         `}
+        ${isBusy ? `<div class="video-loader">${loadingOrbit("Creating Lookbook Video", "Veo is turning this draped image into a short vertical clip.", "This can take 1 to 3 minutes")}</div>` : ""}
         <span>${isBusy ? "Creating" : "Lookbook Clip"}</span>
       </div>
       <div class="video-copy">
@@ -3185,9 +3209,7 @@ function tryOnScreen() {
               <img class="tryon-result-photo" src="${previewImage}" alt="${previewAlt}" />
               ${state.renderStatus === "rendering" ? `
                 <div class="render-overlay">
-                  <span>AI Senior Stylist</span>
-                  <strong>Senior Stylist is creating this Lookbook</strong>
-                  <em>${style.label} · ${product.brand}</em>
+                  ${loadingOrbit("Senior Stylist is creating this Lookbook", "Draping the selected PDP outfit on your uploaded image.", `${style.label} · ${product.brand}`)}
                 </div>
               ` : ""}
             </div>
@@ -3209,9 +3231,10 @@ function tryOnScreen() {
       </div>
       ${state.uploadConfirmed ? `
         <section class="upload-read-card">
-          <span>Style Read Complete</span>
+          <span>${state.autoSuggestStatus === "reading" ? "Style Read Running" : "Style Read Complete"}</span>
           <strong>${state.uploadedPhotoTitle || "Uploaded Image"}</strong>
           <p>${state.guardrailStatus === "partial" ? "Lifestyle image accepted. A clean full-body front pose will improve AI styling accuracy." : "Image accepted. I am matching your avatar to curated store catalogue edits."}</p>
+          ${state.autoSuggestStatus === "reading" ? loadingOrbit("AI Senior Stylist is reading", "Building your suggested product lane from the uploaded image.", "Catalogue suggestions unlock after this read") : ""}
         </section>
         ${autoSuggestPanel()}
         ${stylistPanel(guidedProduct, true)}
@@ -3562,14 +3585,22 @@ function searchScreen() {
 
 function bottomGroup() {
   const hasCatalogueSelection = state.selectedId !== previewProductId;
-  const tryonLabel = !state.uploadConfirmed
+  const isCreatingLookbook = state.renderStatus === "rendering";
+  const isCreatingVideo = state.videoStatus === "generating" || state.videoStatus === "running";
+  const tryonLabel = isCreatingLookbook
+    ? "Creating Lookbook"
+    : isCreatingVideo
+      ? "Creating Video"
+      : !state.uploadConfirmed
     ? "Upload Image"
     : state.renderStatus === "rendered"
       ? "Add To Bag"
       : hasCatalogueSelection
         ? "Create Lookbook"
         : "View Suggested Products";
-  const tryonAction = !state.uploadConfirmed
+  const tryonAction = isCreatingLookbook || isCreatingVideo
+    ? "busy"
+    : !state.uploadConfirmed
     ? "open-gallery"
     : state.renderStatus === "rendered"
       ? "add-to-bag"
@@ -3600,8 +3631,8 @@ function bottomGroup() {
   return `
     <footer class="bottom-group" data-node-id="5516:46365">
       <div class="bottom-cta" data-node-id="5516:46366">
-        <button class="primary-button" data-cta="${cta[1]}">
-          <img src="${cta[2]}" alt="" />
+        <button class="primary-button ${cta[1] === "busy" ? "button-busy" : ""}" data-cta="${cta[1]}">
+          ${cta[1] === "busy" ? `<i class="mini-spinner" aria-hidden="true"></i>` : `<img src="${cta[2]}" alt="" />`}
           <span>${cta[0]}</span>
         </button>
       </div>
@@ -3930,6 +3961,10 @@ function bindEvents() {
   document.querySelectorAll("[data-cta]").forEach((button) => {
     button.addEventListener("click", () => {
       const action = button.dataset.cta;
+      if (action === "busy") {
+        flash(state.videoStatus === "generating" || state.videoStatus === "running" ? "Lookbook video is creating" : "Lookbook creation is running");
+        return;
+      }
       if (action === "render") {
         if (state.renderStatus === "rendered") {
           addCurrentLook();

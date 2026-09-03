@@ -1,6 +1,6 @@
 # QA Report
 
-Date: 2026-09-04 02:15 IST
+Date: 2026-09-04 02:32 IST
 
 ## Scope
 
@@ -23,6 +23,7 @@ Release sanity for the Companion AI Lookbook prototype:
 - Gallery state: passed. Mobile-style gallery opens and includes the real model tile plus device upload.
 - Upload state: passed. Upload unlocks suggested products and does not auto-trigger Surprise Me.
 - PDP state: passed. Auto suggestion opens a real PDP, not the preview item, and shows the Lookbook progress rail.
+- Loading state: passed. Style Read, Create Lookbook and Generate Lookbook Video each show visible spinner/progress UI while real AI generation is running.
 - Bag state: passed. Bag badge starts at 0 and updates after Add To Bag.
 - Profile state: passed. Account/Profile shows saved looks and bag count.
 - Lookbook state: passed. Saved looks render, reopen and remove correctly.
@@ -37,7 +38,7 @@ Release sanity for the Companion AI Lookbook prototype:
 - Local Vertex image analysis: passed. `/api/analyze-upload-image` returned `mode: "vertex-analysis"`, male lane, Live Moment category and real recommendation notes for the uploaded stadium model image.
 - Local Vertex Lookbook image creation: passed. `/api/generate-tryon-image` returned `mode: "vertex-try-on"`, `status: "done"` and `/generated-images/lookbook-image-1788468210760.png`.
 - Local Veo video generation: passed. `/api/generate-lookbook-video` consumed the generated VTO image path and returned `mode: "vertex"`, `status: "done"` and `/generated-videos/lookbook-1788468108563.mp4`.
-- Browser real-AI state: passed. The UI completed upload, style read, PDP, Create Lookbook, Vertex-generated image result, Veo-generated video at `/generated-videos/lookbook-1788468290801.mp4`, Lookbook library, female PDP route and Bag update.
+- Browser real-AI state: passed. The UI completed upload, style read, visible loading indicators, PDP, Create Lookbook, Vertex-generated image result, Veo-generated video at `/generated-videos/lookbook-1788469320500.mp4`, Lookbook library, female PDP route and Bag update.
 - Public shareable path: passed. GitHub Pages frontend with HTTPS backend tunnel completed the same real-AI browser QA and produced `/generated-images/lookbook-image-1788468677210.png` plus `https://e99f200d09bb1f.lhr.life/generated-videos/lookbook-1788468762863.mp4`.
 
 ## Fixes Made During QA
@@ -50,8 +51,9 @@ Release sanity for the Companion AI Lookbook prototype:
 - Fixed Vertex Gemini image analysis to use the working REST payload shape and fail honestly if no usable JSON is returned.
 - Changed Vertex VTO output handling to save generated images under `/generated-images/`, avoiding huge browser data URL round-trips before Veo.
 - Hardened generated-image handoff so the backend accepts both relative local asset paths and absolute local asset URLs.
+- Added spinner/progress UI for upload analysis, Lookbook image generation, Veo video generation and the sticky bottom CTA.
 - Updated browser QA to require real Vertex try-on and real Veo video, not static preview modes.
 
 ## Known Release Boundary
 
-GitHub Pages is static and cannot safely run the Google service-account key. For a fully live public AI URL, run the local Node server while using the Pages frontend with `?apiBase=http%3A%2F%2F127.0.0.1%3A4173`, or deploy the Node server behind a production backend with private environment variables.
+GitHub Pages is static and cannot safely run the Google service-account key. For a fully live public AI URL, use the local app at `http://127.0.0.1:4173/`, or point the Pages frontend to an HTTPS backend/tunnel with `?apiBase=...`, or deploy the Node server behind a production backend with private environment variables.

@@ -305,6 +305,12 @@ try {
   await waitFor("PDP Create Lookbook", `document.body.innerText.includes("Create Lookbook") && Boolean(document.querySelector(".pdp-hero"))`);
 
 	  await click('[data-action="start-draping"]', "Create Lookbook");
+	  await waitFor("Create Lookbook loading spinner", `(() => {
+	    const qaState = window.__COMPANION_QA_STATE__ || {};
+	    return qaState.renderStatus === "rendering" &&
+	      document.body.innerText.includes("Senior Stylist is creating this Lookbook") &&
+	      Boolean(document.querySelector(".render-overlay .loading-orbit"));
+	  })()`, 8000);
 	  await waitFor("rendering or result state", `document.body.innerText.includes("Senior Stylist is creating this Lookbook") || document.body.innerText.includes("saved to Lookbook")`, 8000);
 	  await waitFor("rendered Lookbook result", `document.body.innerText.includes("saved to Lookbook") && document.body.innerText.includes("Generate Lookbook Video")`, 180000);
 	  const renderMode = await evaluate(`(() => {
@@ -315,6 +321,12 @@ try {
 	  assert(renderMode === "vertex-try-on", `Expected Vertex try-on image, received ${renderMode}`);
 
 	  await click('[data-action="generate-video"]', "Generate Lookbook Video");
+	  await waitFor("Generate Lookbook Video loading spinner", `(() => {
+	    const qaState = window.__COMPANION_QA_STATE__ || {};
+	    return (qaState.videoStatus === "generating" || qaState.videoStatus === "running") &&
+	      document.body.innerText.includes("Creating Video") &&
+	      Boolean(document.querySelector(".video-loader .loading-orbit"));
+	  })()`, 8000);
 	  await waitFor("real Veo video panel", `(() => {
 	    const qaState = window.__COMPANION_QA_STATE__ || {};
 	    return qaState.videoStatus === "ready" &&
