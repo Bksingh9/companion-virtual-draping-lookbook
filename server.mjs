@@ -347,7 +347,7 @@ function composeTryOnPrompt(body) {
   const gender = body.gender === "female" ? "female" : body.gender === "male" ? "male" : "adult";
   const productFallback = body.gender === "female" ? "selected womenswear product" : "selected menswear product";
   return [
-    `Create a premium virtual try-on image for an adult ${gender} shopper inside the TRENDS Companion app.`,
+    `Create a premium virtual draping image for an adult ${gender} shopper inside the TRENDS Companion app.`,
     "Use the person image as the identity, face, body, pose, and real-life avatar anchor.",
     `Drape the selected PDP catalogue product: ${composeProductDescription(product) || productFallback}.`,
     `Stylist intent: ${product.drapeNote || "make the product feel polished, wearable, and store-ready"}.`,
@@ -407,7 +407,7 @@ function extractTryOnImageResult(response) {
       for (const entry of images) {
         const image = entry?.image || entry;
         if (image?.raiFilteredReason) {
-          const error = new Error(`Try-on image filtered: ${image.raiFilteredReason}`);
+          const error = new Error(`Draping image filtered: ${image.raiFilteredReason}`);
           error.statusCode = 422;
           throw error;
         }
@@ -431,7 +431,7 @@ function extractTryOnImageResult(response) {
     }
   }
 
-  throw new Error("Virtual try-on completed without an image");
+  throw new Error("Virtual draping completed without an image");
 }
 
 function publisherModelUrl(modelId, method) {
@@ -447,7 +447,7 @@ async function generateVertexTryOnImage(body) {
       status: "mock_ready",
       imageDataUrl: "",
       imageUri: "",
-      message: "Virtual try-on endpoint is wired. Set VERTEX_ENABLE_TRYON=true to run Vertex VTO.",
+      message: "Virtual draping endpoint is wired. Set VERTEX_ENABLE_TRYON=true to run Vertex VTO.",
     };
   }
 

@@ -46,4 +46,4 @@ export VERTEX_TRYON_OUTPUT_GCS_URI="gs://your-bucket/path"
 export VERTEX_ANALYSIS_MODEL_ID="gemini-2.5-flash"
 ```
 
-If Vertex image analysis, try-on, or video generation fails or is unavailable, the UI falls back to a graceful local recommendation or mapped catalogue render so the prototype journey does not break.
+If Vertex image analysis, draping, or video generation fails or is unavailable, the UI falls back to a graceful local recommendation or mapped catalogue drape so the prototype journey does not break.

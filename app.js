@@ -1893,12 +1893,12 @@ async function renderOnModel() {
     state.tryOnImageUri = data.imageUri || "";
     state.tryOnMode = data.mode || "vertex-try-on";
     state.tryOnMessage = data.imageDataUrl || data.imageUrl
-      ? "AI virtual draping image generated"
-      : "AI render stored remotely. Showing the mapped catalogue result in this prototype.";
+      ? "AI draped lookbook image created and saved"
+      : "AI drape stored remotely. Showing the mapped catalogue drape in this prototype.";
     state.renderStatus = "rendered";
     saveCurrentLookToLookbook({ silent: true });
     render();
-    flash(data.mode === "mock" ? "Prototype drape ready" : "AI drape ready");
+    flash(data.mode === "mock" ? "Lookbook drape ready" : "AI lookbook drape ready");
   } catch (error) {
     if (state.tryOnRequestToken !== requestToken) return;
     state.renderedId = state.selectedId;
@@ -1906,17 +1906,17 @@ async function renderOnModel() {
     state.tryOnImageUri = "";
     state.tryOnMode = "premium-fallback";
     state.tryOnError = error.message;
-    state.tryOnMessage = "Using the mapped catalogue render while AI draping is unavailable.";
+    state.tryOnMessage = "Using the mapped catalogue drape while AI draping is unavailable.";
     state.renderStatus = "rendered";
     saveCurrentLookToLookbook({ silent: true });
     render();
-    flash("Premium fallback drape ready");
+    flash("Lookbook drape saved");
   }
 }
 
 function saveCurrentLookToLookbook(options = {}) {
   if (state.renderStatus !== "rendered") {
-    flash("Try on virtually first");
+    flash("Drape into Lookbook first");
     return false;
   }
   const product = renderedProduct();
@@ -1987,13 +1987,13 @@ function addCurrentLook() {
 
 function shareCurrentLook() {
   if (state.renderStatus !== "rendered") {
-    flash("Try on virtually first");
+    flash("Drape into Lookbook first");
     return;
   }
   saveCurrentLookToLookbook({ silent: true });
   const product = renderedProduct();
   const style = selectedLookbookStyle();
-  const text = `I tried ${product.brand} ${product.name} as a ${style.label} look with Companion Virtual Draping at TRENDS.`;
+  const text = `I draped ${product.brand} ${product.name} into my ${style.label} Lookbook with Companion Virtual Draping at TRENDS.`;
   if (navigator.share) {
     navigator.share({ title: "My Companion Look", text }).catch(() => {});
     flash("Share sheet opened");
@@ -2007,7 +2007,7 @@ function shareCurrentLook() {
 
 function castCurrentLook() {
   if (state.renderStatus !== "rendered") {
-    flash("Try on virtually first");
+    flash("Drape into Lookbook first");
     return;
   }
   saveCurrentLookToLookbook({ silent: true });
@@ -2058,7 +2058,7 @@ function saveProductForLookbook() {
     return;
   }
   startProductDraping();
-  flash("Try on virtually to save this look");
+  flash("Drape this PDP into Lookbook first");
 }
 
 function tryAnotherLook() {
@@ -2102,7 +2102,7 @@ function copyPromptToClipboard() {
 function reverseLookbookPrompt(product, environment = selectedEnvironment(), cameraMove = selectedCameraMove(), style = selectedLookbookStyle()) {
   const avatarAnchor = state.uploadedPhoto && state.uploadedPhoto.startsWith("data:image/")
     ? "Use the uploaded customer image as the avatar identity anchor and adapt the selected PDP outfit onto that person."
-    : "Use the rendered catalogue try-on image as the first-frame avatar identity anchor.";
+    : "Use the draped catalogue lookbook image as the first-frame avatar identity anchor.";
   return [
     "TRENDS AI Senior Stylist reverse prompt for a vertical 9:16 in-store lookbook video.",
     avatarAnchor,
@@ -2124,7 +2124,7 @@ function videoPrompt(product) {
 
 async function generateLookbookVideo() {
   if (state.renderStatus !== "rendered") {
-    flash("Try on me first");
+    flash("Drape into Lookbook first");
     return;
   }
   const product = renderedProduct();
@@ -2772,7 +2772,7 @@ function pdpScreen() {
       ${lookbookStudio(product, "pdp")}
 
       <section class="pdp-actions">
-        <button class="wide-dark" data-action="start-draping">Try On Virtually</button>
+        <button class="wide-dark" data-action="start-draping">Drape Into Lookbook</button>
         <button class="wide-outline" data-action="add-to-bag">Add To Bag</button>
         <button class="wide-outline" data-action="${saved ? "open-lookbook" : "save-product"}">${saved ? "Open Lookbook" : "Save For Lookbook"}</button>
       </section>
@@ -2787,14 +2787,14 @@ function resultActionPanel(product) {
   return `
     <section class="result-actions">
       <div class="result-note">
-        <strong>${product.brand} ${style.label} look ready</strong>
-        <span>${state.tryOnMessage || "Preview shows style, colour and drape on the uploaded image."}${state.tryOnError ? ` Retry remains available if you want a fresh AI render.` : ""}</span>
+        <strong>${product.brand} ${style.label} draped into Lookbook</strong>
+        <span>${state.tryOnMessage || "Preview shows style, colour and drape on the uploaded image."}${state.tryOnError ? ` Redrape remains available if you want a fresh AI attempt.` : ""}</span>
       </div>
       ${videoActive ? videoStatusPanel(product) : ""}
       <button class="wide-dark" data-action="add-to-bag">Add To Bag</button>
       <div class="action-grid">
-        <button data-action="generate-video">${state.videoStatus === "generating" || state.videoStatus === "running" ? "Generating..." : "Generate Video"}</button>
-        <button data-action="render">Retry Draping</button>
+        <button data-action="generate-video">${state.videoStatus === "generating" || state.videoStatus === "running" ? "Creating..." : "Generate Lookbook Video"}</button>
+        <button data-action="render">Redrape Look</button>
         <button data-action="share-look">Share</button>
         <button data-action="cast-tv">Cast TV</button>
         <button data-action="open-lookbook">Lookbook</button>
@@ -2816,7 +2816,7 @@ function videoStatusPanel(product) {
         ` : `
           <img src="${currentRenderedImage(product)}" alt="${product.brand} ${product.name} video preview" />
         `}
-        <span>${isBusy ? "Rendering" : "Lookbook Clip"}</span>
+        <span>${isBusy ? "Creating" : "Lookbook Clip"}</span>
       </div>
       <div class="video-copy">
         <strong>${statusLabel}</strong>
@@ -2883,7 +2883,7 @@ function tryOnScreen() {
       ? suggestedProducts[0] || product
       : product;
   const previewAlt = showingRenderedLook
-    ? `${displayProduct.brand} ${displayProduct.name} rendered on uploaded model`
+    ? `${displayProduct.brand} ${displayProduct.name} draped on uploaded model`
     : `${state.uploadedPhotoTitle || "Uploaded user image"} preview`;
   const mirrorClass = state.renderStatus === "rendering" ? "rendering" : state.renderStatus === "rendered" ? "rendered" : state.renderStatus === "preview" ? "preview" : "";
   return `
@@ -2900,7 +2900,7 @@ function tryOnScreen() {
                   <em>${style.label} · ${product.brand}</em>
                 </div>
               ` : ""}
-              ${state.tryOnMode === "premium-fallback" && showingRenderedLook ? `<span class="render-fallback-badge">Mapped catalogue render</span>` : ""}
+              ${state.tryOnMode === "premium-fallback" && showingRenderedLook ? `<span class="render-fallback-badge">Mapped catalogue drape</span>` : ""}
             </div>
           ` : `
             <div class="upload-zone">
@@ -3074,7 +3074,7 @@ function bagScreen() {
       ` : `
         <div class="placeholder-card">
           <h2>No looks yet</h2>
-          <p>Render a product on your image, then add it here.</p>
+          <p>Drape a catalogue product into your Lookbook, then add it here.</p>
           <button class="wide-dark" data-route="tryon">Start Virtual Draping</button>
         </div>
       `}
@@ -3128,7 +3128,7 @@ function lookbookScreen() {
         <section class="empty-lookbook">
           <img src="${assets.lookbookSheet}" alt="" />
           <h2>No saved looks yet</h2>
-          <p>Upload a full body image, open a catalogue PDP, then drape and save the result here.</p>
+          <p>Upload a full body image, open a catalogue PDP, then drape the result directly into this Lookbook.</p>
           <button class="wide-dark" data-route="tryon">Upload Image</button>
           <button class="wide-outline" data-route="discover">Browse Catalogue</button>
         </section>
@@ -3196,7 +3196,7 @@ function bottomGroup() {
     : state.renderStatus === "rendered"
       ? "Add To Bag"
       : hasCatalogueSelection
-        ? "Try On Me"
+        ? "Drape Into Lookbook"
         : "View Suggested Products";
   const tryonAction = !state.uploadConfirmed
     ? "open-gallery"
@@ -3208,7 +3208,7 @@ function bottomGroup() {
   const cta = {
     home: ["Scan Item", "scan", assets.bottomBarcode],
     discover: ["Upload Image For Draping", "tryon", assets.apparel],
-    pdp: ["Try On Virtually", "start-draping", assets.apparel],
+    pdp: ["Drape Into Lookbook", "start-draping", assets.apparel],
     tryon: [tryonLabel, tryonAction, assets.apparel],
     lookbook: [state.lookbookItems.length ? "Open Latest Look" : "Browse Catalogue", state.lookbookItems.length ? "open-latest-look" : "discover", assets.hanger],
     tv: ["Back To Lookbook", "lookbook", assets.hanger],
