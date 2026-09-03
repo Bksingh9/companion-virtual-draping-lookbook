@@ -1,6 +1,6 @@
 # QA Report
 
-Date: 2026-09-04 02:32 IST
+Date: 2026-09-04 02:38 IST
 
 ## Scope
 
@@ -39,7 +39,7 @@ Release sanity for the Companion AI Lookbook prototype:
 - Local Vertex Lookbook image creation: passed. `/api/generate-tryon-image` returned `mode: "vertex-try-on"`, `status: "done"` and `/generated-images/lookbook-image-1788468210760.png`.
 - Local Veo video generation: passed. `/api/generate-lookbook-video` consumed the generated VTO image path and returned `mode: "vertex"`, `status: "done"` and `/generated-videos/lookbook-1788468108563.mp4`.
 - Browser real-AI state: passed. The UI completed upload, style read, visible loading indicators, PDP, Create Lookbook, Vertex-generated image result, Veo-generated video at `/generated-videos/lookbook-1788469320500.mp4`, Lookbook library, female PDP route and Bag update.
-- Public shareable path: passed. GitHub Pages frontend with HTTPS backend tunnel completed the same real-AI browser QA and produced `/generated-images/lookbook-image-1788468677210.png` plus `https://e99f200d09bb1f.lhr.life/generated-videos/lookbook-1788468762863.mp4`.
+- Public shareable path: passed. GitHub Pages frontend with HTTPS backend tunnel completed the same real-AI browser QA with visible loader assertions and produced `/generated-images/lookbook-image-1788469593318.png` plus `https://b3063ee333d57e.lhr.life/generated-videos/lookbook-1788469675612.mp4`.
 
 ## Fixes Made During QA
 
