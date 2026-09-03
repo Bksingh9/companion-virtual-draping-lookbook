@@ -27,6 +27,8 @@ Then open:
 http://127.0.0.1:4173/
 ```
 
+The GitHub Pages link is the shareable frontend prototype. It runs the full upload, suggestion, PDP, mapped drape, Lookbook, profile, bag, share, cast and video-preview journey without exposing any private Google credentials. Real Vertex image analysis, virtual draping, and Veo video calls require the local Node server or another backend deployment.
+
 ## Vertex Setup
 
 Keep credentials outside git. Either set:

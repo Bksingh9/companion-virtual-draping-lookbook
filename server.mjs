@@ -329,6 +329,12 @@ async function analyzeUploadImage(body) {
       },
     );
     const raw = parseJsonish(extractGeminiText(response));
+    if (!raw || Object.keys(raw).length === 0) {
+      return {
+        ...fallback,
+        message: "Vertex analysis returned no usable JSON; using local catalogue routing fallback.",
+      };
+    }
     return normalizeUploadAnalysis(raw, fallback);
   } catch (error) {
     return {
@@ -363,10 +369,6 @@ function composeTryOnPrompt(body) {
 function buildTryOnRequest(body, personImage, productImage) {
   const parameters = {
     sampleCount: 1,
-    personGeneration: "allow-adult",
-    safetySetting: "block-medium-and-above",
-    addWatermark: false,
-    enhancePrompt: true,
   };
   const storageUri = tryOnOutputPrefix();
   if (storageUri) parameters.storageUri = storageUri;
@@ -374,15 +376,15 @@ function buildTryOnRequest(body, personImage, productImage) {
   return {
     instances: [
       {
-        prompt: composeTryOnPrompt(body),
         personImage: {
-          image: personImage,
+          image: {
+            bytesBase64Encoded: personImage.bytesBase64Encoded,
+          },
         },
         productImages: [
           {
-            image: productImage,
-            productImageConfig: {
-              productDescription: composeProductDescription(body.product),
+            image: {
+              bytesBase64Encoded: productImage.bytesBase64Encoded,
             },
           },
         ],
