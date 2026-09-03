@@ -32,7 +32,7 @@ const assets = {
   lookbookSheet: HC("six-male-looks-sheet.png"),
 };
 
-const currentLiveApiBase = "https://1673226b42568e.lhr.life";
+const currentLiveApiBase = "https://23e73322bf1d9e.lhr.life";
 
 const categoryAssets = [
   ["Men Topwear", "cat-men-topwear.png", "large", "cat-men"],
@@ -2428,11 +2428,12 @@ async function pollLookbookVideo(operationName, requestToken) {
   for (let attempt = 0; attempt < 24; attempt += 1) {
     await waitForLookbookVideo(15000);
     if (state.videoRequestToken !== requestToken || state.videoStatus !== "running") return;
+    const currentOperationName = state.videoOperationName || operationName;
     try {
       const { response, data, base } = await fetchApiJson("/api/vertex-video-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operationName }),
+        body: JSON.stringify({ operationName: currentOperationName }),
       }, { preferredBase: state.activeApiBase });
       if (!response.ok) throw new Error(data.error || "Video status check failed");
       applyVertexVideoResult(data, base);

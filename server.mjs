@@ -39,6 +39,7 @@ const mimeTypes = {
 
 let serviceAccountCache;
 let tokenCache;
+const videoJobs = new Map();
 
 function corsHeaders(headers = {}) {
   return {
@@ -603,10 +604,6 @@ function videoUriFromOperation(operation) {
   );
 }
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 async function fetchVideoOperation(operationName) {
   return requestGoogleJson(modelUrl("fetchPredictOperation"), { operationName });
 }
@@ -616,20 +613,60 @@ function isFilteredVideoOperation(operation) {
   return Number(response.raiMediaFilteredCount || 0) > 0 || Array.isArray(response.raiMediaFilteredReasons);
 }
 
-async function runVideoOperation(prompt, image) {
-  const operation = await requestGoogleJson(
+async function startVideoOperation(prompt, image) {
+  return requestGoogleJson(
     modelUrl("predictLongRunning"),
     buildVideoRequest(prompt, image),
   );
-  let current = operation;
-  const deadline = Date.now() + config.maxWaitMs;
+}
 
-  while (!current.done && Date.now() < deadline) {
-    await delay(15000);
-    current = await fetchVideoOperation(current.name);
+function rememberVideoJob(operationName, job) {
+  if (!operationName) return;
+  if (videoJobs.size > 40) {
+    const oldest = videoJobs.keys().next().value;
+    if (oldest) videoJobs.delete(oldest);
+  }
+  videoJobs.set(operationName, { ...job, createdAt: Date.now() });
+}
+
+async function videoStatusForOperation(operationName) {
+  const operation = await fetchVideoOperation(operationName);
+  if (!operation.done) {
+    return {
+      operation,
+      media: { videoUri: "", videoUrl: "" },
+      message: "Vertex video generation is still running.",
+    };
   }
 
-  return current;
+  const media = await extractVideoResult(operation);
+  if (media.videoUri || media.videoUrl) {
+    videoJobs.delete(operationName);
+    return {
+      operation,
+      media,
+      message: "Vertex generated the lookbook video.",
+    };
+  }
+
+  const job = videoJobs.get(operationName);
+  if (isFilteredVideoOperation(operation) && job && !job.retryUsed) {
+    const retryOperation = await startVideoOperation(job.safePrompt, job.image);
+    videoJobs.delete(operationName);
+    rememberVideoJob(retryOperation.name, { ...job, retryUsed: true });
+    return {
+      operation: retryOperation,
+      media: { videoUri: "", videoUrl: "" },
+      message: "Veo is refining the Lookbook video with a cleaner retail prompt.",
+    };
+  }
+
+  console.error("[vertex-video-empty]", JSON.stringify(operation, null, 2).slice(0, 4000));
+  const error = new Error(isFilteredVideoOperation(operation)
+    ? "Vertex filtered the video after retry. Try a cleaner front-facing upload image or a simpler office/casual look."
+    : "Vertex Veo completed without returning a video.");
+  error.statusCode = 502;
+  throw error;
 }
 
 function composeLookbookPrompt(body) {
@@ -677,6 +714,7 @@ async function generateVertexVideo(body) {
   await loadServiceAccount();
   const image = await imagePayloadFromRequest(body);
   const prompt = composeLookbookPrompt(body);
+  const safePrompt = composeSafeLookbookPrompt(body);
 
   if (!config.enableVideo) {
     const error = new Error("Vertex Veo generation is disabled. Set VERTEX_ENABLE_VIDEO=true or remove the disable flag.");
@@ -684,35 +722,20 @@ async function generateVertexVideo(body) {
     throw error;
   }
 
-  let current = await runVideoOperation(prompt, image);
-  let retryUsed = false;
-
-  if (current.done && isFilteredVideoOperation(current) && !videoUriFromOperation(current)) {
-    retryUsed = true;
-    current = await runVideoOperation(composeSafeLookbookPrompt(body), image);
-  }
-
-  const { videoUri, videoUrl } = await extractVideoResult(current);
-  if (current.done && !videoUri && !videoUrl) {
-    console.error("[vertex-video-empty]", JSON.stringify(current, null, 2).slice(0, 4000));
-    const error = new Error(isFilteredVideoOperation(current)
-      ? "Vertex filtered the video after retry. Try a cleaner front-facing upload image or a simpler office/casual look."
-      : "Vertex Veo completed without returning a video.");
-    error.statusCode = 502;
-    throw error;
-  }
+  const operation = await startVideoOperation(prompt, image);
+  rememberVideoJob(operation.name, {
+    image,
+    safePrompt,
+    retryUsed: false,
+  });
 
   return {
     mode: "vertex",
-    status: current.done ? "done" : "running",
-    operationName: current.name,
-    videoUri,
-    videoUrl,
-    message: videoUri
-      ? `Vertex generated the lookbook video${retryUsed ? " with a safe retry." : "."}`
-      : current.done
-        ? "Vertex operation completed, but no video URI was returned."
-        : "Vertex video generation is still running.",
+    status: "running",
+    operationName: operation.name,
+    videoUri: "",
+    videoUrl: "",
+    message: "Veo lookbook video started.",
   };
 }
 
@@ -830,15 +853,14 @@ const server = createServer(async (req, res) => {
       await loadServiceAccount();
       const body = await readRequestJson(req);
       if (!body.operationName) throw new Error("Missing operationName");
-      const operation = await fetchVideoOperation(body.operationName);
-      const media = operation.done ? await extractVideoResult(operation) : { videoUri: "", videoUrl: "" };
+      const { operation, media, message } = await videoStatusForOperation(body.operationName);
       sendJson(res, 200, {
         mode: "vertex",
         status: operation.done ? "done" : "running",
         operationName: operation.name,
         videoUri: media.videoUri || videoUriFromOperation(operation),
         videoUrl: media.videoUrl || "",
-        message: operation.done ? "Vertex generated the lookbook video." : "Vertex video generation is still running.",
+        message,
       });
       return;
     }
