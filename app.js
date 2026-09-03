@@ -2394,7 +2394,7 @@ function reverseLookbookPrompt(product, environment = selectedEnvironment(), cam
     "Reference-video feel: clean Pro Earth full-body studio reveal plus Vacay Resortwear vertical retail energy; polished, warm, aspirational and not gimmicky.",
     `Styling intent: ${product.drapeNote}`,
     `Journey: start with curiosity, reveal one tasteful surprise beat around the outfit, then end with gratification: ${environment.gratification}.`,
-    `Keep an adult ${state.selectedGender} full-body frame, appropriate complete outfit coverage, consistent face/body identity, unchanged garment category, premium store catalogue lighting, and no distorted hands or text artifacts.`,
+    `Keep a complete shopper-safe ${state.selectedGender} full-body catalogue frame, consistent avatar identity, unchanged garment category, premium store catalogue lighting, and no distorted product details or text artifacts.`,
     "Do not imply guaranteed fit; show style, colour, silhouette, and occasion confidence only.",
   ].join(" ");
 }

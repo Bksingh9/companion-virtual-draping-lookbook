@@ -400,7 +400,7 @@ function composeTryOnPrompt(body) {
     `Journey context: ${environment.label || "Store Spotlight"} for ${environment.occasion || "in-store reveal"}; premium beige and black Companion retail mood.`,
     `Camera expectation for later video: ${cameraMove.label || "Orbit Reveal"}; ${cameraMove.framing || "vertical 9:16 full body"}.`,
     "Keep realistic proportions, natural hands, appropriate complete outfit coverage, clean garment boundaries, and accurate product colour/fabric.",
-    "Do not create underwear-only output, distorted fingers, warped face, logos, floating UI text, or fit-guarantee claims.",
+    "Do not create incomplete outfit output, distorted details, logos, floating UI text, or fit-guarantee claims.",
     basePrompt,
   ].filter(Boolean).join(" ");
 }
@@ -542,12 +542,12 @@ function buildVideoRequest(prompt, image) {
     resolution: config.resolution,
     negativePrompt: [
       "unreadable outfit",
-      "underwear-only output",
+      "incomplete outfit",
       "garment category change",
-      "face identity drift",
+      "identity drift",
       "duplicate body",
-      "warped hands",
-      "extra limbs",
+      "distorted details",
+      "duplicate figure",
       "text overlays",
       "logos",
       "background flicker",
@@ -611,6 +611,27 @@ async function fetchVideoOperation(operationName) {
   return requestGoogleJson(modelUrl("fetchPredictOperation"), { operationName });
 }
 
+function isFilteredVideoOperation(operation) {
+  const response = operation?.response || {};
+  return Number(response.raiMediaFilteredCount || 0) > 0 || Array.isArray(response.raiMediaFilteredReasons);
+}
+
+async function runVideoOperation(prompt, image) {
+  const operation = await requestGoogleJson(
+    modelUrl("predictLongRunning"),
+    buildVideoRequest(prompt, image),
+  );
+  let current = operation;
+  const deadline = Date.now() + config.maxWaitMs;
+
+  while (!current.done && Date.now() < deadline) {
+    await delay(15000);
+    current = await fetchVideoOperation(current.name);
+  }
+
+  return current;
+}
+
 function composeLookbookPrompt(body) {
   const product = body.product || {};
   const environment = body.environment || {};
@@ -631,9 +652,25 @@ function composeLookbookPrompt(body) {
     `Consumer journey: curiosity opening, one clean surprise reveal beat, and gratification through ${environment.gratification || "a saved lookbook-ready outfit"}.`,
     "Sound direction: subtle premium store ambience, soft camera whoosh on reveal, no speech, no loud music, no distracting crowd noise.",
     "Reference mood: Pro Earth Men vertical studio discipline plus Vacay Resortwear retail energy: full-body framing, cream/white studio polish, soft premium light, catalogue clarity and creator-style motion.",
-    "Preserve the avatar identity, body proportions and selected draped outfit from the input image. Show style, colour and drape only; do not imply a guaranteed fit.",
-    "Avoid text overlays, extra logos, underwear-only output, garment category changes, warped hands, face drift, duplicate bodies, background flicker or product colour changes.",
+    "Preserve the avatar identity and selected styled outfit from the input image. Show style, colour and drape only; do not imply a guaranteed fit.",
+    "Avoid text overlays, extra logos, incomplete outfits, garment category changes, distorted details, duplicate figures, background flicker or product colour changes.",
   ].filter(Boolean).join(" ");
+}
+
+function composeSafeLookbookPrompt(body) {
+  const product = body.product || {};
+  const environment = body.environment || {};
+  const cameraMove = body.cameraMove || {};
+  const style = body.lookbookStyle || {};
+  return [
+    "Create an 8 second vertical 9:16 retail lookbook video from the supplied styled image as the first frame.",
+    `Product focus: ${product.brand || "TRENDS"} ${product.name || "catalogue look"} in ${product.color || "store colours"}.`,
+    `Occasion: ${style.label || "Store Spotlight"} for ${style.occasion || "a polished shopping moment"}.`,
+    `Scene: ${environment.scene || "clean premium retail studio"} with soft light, full outfit readability and a calm shopper-safe presentation.`,
+    `Camera: ${cameraMove.motion || "slow push-in with a final front-facing hero hold"}; ${cameraMove.framing || "vertical full outfit frame"}.`,
+    "Keep the same person and styled catalogue outfit from the first frame. Use natural, minimal motion and a polished final hold.",
+    "No text, no logos, no duplicate figure, no distorted product details, no category changes, no flicker.",
+  ].join(" ");
 }
 
 async function generateVertexVideo(body) {
@@ -647,22 +684,20 @@ async function generateVertexVideo(body) {
     throw error;
   }
 
-  const operation = await requestGoogleJson(
-    modelUrl("predictLongRunning"),
-    buildVideoRequest(prompt, image),
-  );
-  let current = operation;
-  const deadline = Date.now() + config.maxWaitMs;
+  let current = await runVideoOperation(prompt, image);
+  let retryUsed = false;
 
-  while (!current.done && Date.now() < deadline) {
-    await delay(15000);
-    current = await fetchVideoOperation(current.name);
+  if (current.done && isFilteredVideoOperation(current) && !videoUriFromOperation(current)) {
+    retryUsed = true;
+    current = await runVideoOperation(composeSafeLookbookPrompt(body), image);
   }
 
   const { videoUri, videoUrl } = await extractVideoResult(current);
   if (current.done && !videoUri && !videoUrl) {
     console.error("[vertex-video-empty]", JSON.stringify(current, null, 2).slice(0, 4000));
-    const error = new Error("Vertex Veo completed without returning a video.");
+    const error = new Error(isFilteredVideoOperation(current)
+      ? "Vertex filtered the video after retry. Try a cleaner front-facing upload image or a simpler office/casual look."
+      : "Vertex Veo completed without returning a video.");
     error.statusCode = 502;
     throw error;
   }
@@ -674,7 +709,7 @@ async function generateVertexVideo(body) {
     videoUri,
     videoUrl,
     message: videoUri
-      ? "Vertex generated the lookbook video."
+      ? `Vertex generated the lookbook video${retryUsed ? " with a safe retry." : "."}`
       : current.done
         ? "Vertex operation completed, but no video URI was returned."
         : "Vertex video generation is still running.",
