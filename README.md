@@ -1,6 +1,6 @@
-# Companion Virtual Draping Lookbook
+# Companion AI Lookbook
 
-Premium TRENDS Companion prototype for a Senior Stylist-led virtual draping journey.
+Premium TRENDS Companion prototype for a Senior Stylist-led AI Lookbook journey.
 
 ## Flow
 
@@ -11,9 +11,9 @@ Premium TRENDS Companion prototype for a Senior Stylist-led virtual draping jour
 5. Unlock 25 male and 25 female curated lookbook styles for office, dates, casual, sport wear, ethnic, resort, formal, travel, celebration and store spotlight.
 6. Offer 10 male and 10 female "Surprise Me For The Day" paths.
 7. Open catalogue/PDP suggestions.
-8. Generate a virtual draping image with Vertex `virtual-try-on-001`.
-9. Use the generated draped image as the first frame for lookbook video generation.
-10. Save, share, cast, add to bag, or reopen the draped Lookbook from the Profile hub.
+8. Create the Lookbook result with Vertex `virtual-try-on-001`.
+9. Use the generated Lookbook image as the first frame for lookbook video generation.
+10. Save, share, cast, add to bag, or reopen the saved Lookbook from the Profile hub.
 
 ## Run Locally
 
@@ -27,7 +27,13 @@ Then open:
 http://127.0.0.1:4173/
 ```
 
-The GitHub Pages link is the shareable frontend prototype. It runs the full upload, suggestion, PDP, mapped drape, Lookbook, profile, bag, share, cast and video-preview journey without exposing any private Google credentials. Real Vertex image analysis, virtual draping, and Veo video calls require the local Node server or another backend deployment.
+The GitHub Pages link is the shareable frontend prototype. It runs the full upload, suggestion, PDP, mapped Lookbook result, profile, bag, share, cast and video-preview journey without exposing any private Google credentials. Real Vertex image analysis, Lookbook image creation, and Veo video calls require the local Node server or another backend deployment.
+
+Run the product-flow QA:
+
+```bash
+npm run qa:flow
+```
 
 ## Vertex Setup
 

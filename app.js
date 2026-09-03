@@ -448,7 +448,7 @@ function createCuratedLookbookStyle(blueprint, gender, index, dailySurprise = fa
   const category = blueprint.category;
   const occasion = blueprint.occasion;
   const productIds = blueprint.productIds || rotatedProductIds(gender === "female" ? femaleProductRotation : maleProductRotation, index);
-  const audience = gender === "female" ? "her" : "his";
+  const audience = gender === "female" ? "her" : "him";
   return {
     id: `${gender}-${slugifyStyle(label)}`,
     gender,
@@ -2020,7 +2020,7 @@ function shareCurrentLook() {
   saveCurrentLookToLookbook({ silent: true });
   const product = renderedProduct();
   const style = selectedLookbookStyle();
-  const text = `I draped ${product.brand} ${product.name} into my ${style.label} Lookbook with Companion Virtual Draping at TRENDS.`;
+  const text = `I saved ${product.brand} ${product.name} into my ${style.label} AI Lookbook with TRENDS Companion.`;
   if (navigator.share) {
     navigator.share({ title: "My Companion Look", text }).catch(() => {});
     flash("Share sheet opened");
@@ -2306,7 +2306,7 @@ function topChrome() {
 function featureTopChrome() {
   const titles = {
     discover: ["Discover", state.activeCollection],
-    tryon: ["Virtual Draping Product", "TRENDS"],
+    tryon: ["AI Lookbook", "Senior Stylist"],
     pdp: ["Product Details", "Catalogue PDP"],
     lookbook: ["Lookbook", `${state.lookbookItems.length} saved looks`],
     tv: ["Store TV Preview", "30 sec cast"],
@@ -2381,7 +2381,7 @@ function heroSection() {
           <img class="tile-separator" src="${assets.tileDivider}" alt="" />
           <button class="hero-tile" data-route="tryon">
             <img src="${assets.apparel}" alt="" />
-            <span>Virtual Draping</span>
+            <span>AI Lookbook</span>
           </button>
         </div>
       </div>
@@ -2582,7 +2582,7 @@ function lookbookJourneySection() {
             </button>
           `).join("")}
         </div>
-        <button class="wide-dark" data-route="tryon" data-preserve-style="true">Start Virtual Draping</button>
+        <button class="wide-dark" data-route="tryon" data-preserve-style="true">Start AI Lookbook</button>
         <button class="wide-outline" data-action="surprise-look">Surprise Me For The Day</button>
       </div>
     </section>
@@ -2618,7 +2618,7 @@ function productCard(product) {
 function analystNudge(context, product = selectedProduct()) {
   const style = selectedLookbookStyle();
   const copy = {
-    discover: `I am reading ${genderLabel().toLowerCase()} catalogue PDPs against your ${style.label} brief. Pick a product and I will turn it into a draped lookbook result.`,
+    discover: `I am reading ${genderLabel().toLowerCase()} catalogue PDPs against your ${style.label} brief. Pick a product and I will turn it into a saved Lookbook result.`,
     upload: `Start with a real image. I will check the upload guardrails, read the mood, and unlock curated styles before showing suggestions.`,
     lookbook: `Saved looks become your digital closet. Reopen any one, generate a clip, share it, cast it, or add it to bag.`,
   }[context] || `I am matching ${product.brand} with your ${style.label} edit so the result feels personal, useful and store-ready.`;
@@ -2626,6 +2626,27 @@ function analystNudge(context, product = selectedProduct()) {
     <section class="analyst-nudge">
       <span>AI Senior Stylist</span>
       <p>${copy}</p>
+    </section>
+  `;
+}
+
+function lookbookProgress(active = "upload") {
+  const steps = [
+    ["upload", "Upload"],
+    ["read", "Style Read"],
+    ["pdp", "PDP"],
+    ["lookbook", "Lookbook"],
+    ["share", "Share/Bag"],
+  ];
+  const activeIndex = Math.max(0, steps.findIndex(([id]) => id === active));
+  return `
+    <section class="lookbook-progress" aria-label="AI Lookbook journey">
+      ${steps.map(([id, label], index) => `
+        <span class="${index < activeIndex ? "done" : ""} ${id === active ? "active" : ""}">
+          <i>${index + 1}</i>
+          <b>${label}</b>
+        </span>
+      `).join("")}
     </section>
   `;
 }
@@ -2772,6 +2793,7 @@ function pdpScreen() {
   const saved = state.lookbookItems.some((item) => item.productId === product.id && item.lookbookStyleId === style.id);
   return `
     <main class="page proto-screen" data-screen="pdp">
+      ${lookbookProgress("pdp")}
       <section class="pdp-hero">
         <div class="pdp-image">
           <img src="${product.image}" alt="${product.brand} ${product.name}" />
@@ -2792,7 +2814,7 @@ function pdpScreen() {
         <h2>Product Details</h2>
         <div class="detail-list">
           <span><b>Fabric</b>${product.fabric}</span>
-          <span><b>Fit Read</b>Regular fit, draping-ready on uploaded image</span>
+          <span><b>Fit Read</b>Regular fit, Lookbook-ready on uploaded image</span>
           <span><b>Stylist Edit</b>${style.category}</span>
           <span><b>Store</b>TRENDS, Phoenix Mall Of Asia</span>
         </div>
@@ -2805,7 +2827,7 @@ function pdpScreen() {
       ${lookbookStudio(product, "pdp")}
 
       <section class="pdp-actions">
-        <button class="wide-dark" data-action="start-draping">Drape Into Lookbook</button>
+        <button class="wide-dark" data-action="start-draping">Create Lookbook</button>
         <button class="wide-outline" data-action="add-to-bag">Add To Bag</button>
         <button class="wide-outline" data-action="${saved ? "open-lookbook" : "save-product"}">${saved ? "Open Lookbook" : "Save For Lookbook"}</button>
       </section>
@@ -2820,14 +2842,14 @@ function resultActionPanel(product) {
   return `
     <section class="result-actions">
       <div class="result-note">
-        <strong>${product.brand} ${style.label} draped into Lookbook</strong>
-        <span>${state.tryOnMessage || "Preview shows style, colour and drape on the uploaded image."}${state.tryOnError ? ` Redrape remains available if you want a fresh AI attempt.` : ""}</span>
+        <strong>${product.brand} ${style.label} saved to Lookbook</strong>
+        <span>${state.tryOnMessage || "Preview shows style, colour and drape on the uploaded image."}${state.tryOnError ? ` Recreate remains available if you want a fresh AI attempt.` : ""}</span>
       </div>
       ${videoActive ? videoStatusPanel(product) : ""}
       <button class="wide-dark" data-action="add-to-bag">Add To Bag</button>
       <div class="action-grid">
         <button data-action="generate-video">${state.videoStatus === "generating" || state.videoStatus === "running" ? "Creating..." : "Generate Lookbook Video"}</button>
-        <button data-action="render">Redrape Look</button>
+        <button data-action="render">Recreate Look</button>
         <button data-action="share-look">Share</button>
         <button data-action="cast-tv">Cast TV</button>
         <button data-action="open-lookbook">Lookbook</button>
@@ -2874,7 +2896,7 @@ function discoverScreen() {
     <main class="page proto-screen" data-screen="discover">
       <div class="proto-header">
         <h1>${state.uploadConfirmed ? "Suggested Catalogue Products" : "Discover"}</h1>
-        <p>${state.uploadConfirmed ? `${style.label}: ${style.reason}` : `${escapeHTML(state.activeCollection)} from the in-store catalogue. Open a PDP, then drape it on the uploaded image.`}</p>
+        <p>${state.uploadConfirmed ? `${style.label}: ${style.reason}` : `${escapeHTML(state.activeCollection)} from the in-store catalogue. Open a PDP, then create a Lookbook from the uploaded image.`}</p>
       </div>
       ${genderSwitch()}
       ${state.activeOffer ? `<div class="state-banner">${state.activeOffer}</div>` : ""}
@@ -2916,11 +2938,12 @@ function tryOnScreen() {
       ? suggestedProducts[0] || product
       : product;
   const previewAlt = showingRenderedLook
-    ? `${displayProduct.brand} ${displayProduct.name} draped on uploaded model`
+    ? `${displayProduct.brand} ${displayProduct.name} styled on uploaded model`
     : `${state.uploadedPhotoTitle || "Uploaded user image"} preview`;
   const mirrorClass = state.renderStatus === "rendering" ? "rendering" : state.renderStatus === "rendered" ? "rendered" : state.renderStatus === "preview" ? "preview" : "";
   return `
     <main class="page proto-screen" data-screen="tryon">
+      ${lookbookProgress(showingRenderedLook ? "lookbook" : state.uploadConfirmed ? "read" : "upload")}
       <div class="tryon-stage">
         <div class="tryon-panel">
           ${state.uploadedPhoto ? `
@@ -2929,18 +2952,18 @@ function tryOnScreen() {
               ${state.renderStatus === "rendering" ? `
                 <div class="render-overlay">
                   <span>AI Senior Stylist</span>
-                  <strong>Senior Stylist is draping this look</strong>
+                  <strong>Senior Stylist is creating this Lookbook</strong>
                   <em>${style.label} · ${product.brand}</em>
                 </div>
               ` : ""}
-              ${state.tryOnMode === "premium-fallback" && showingRenderedLook ? `<span class="render-fallback-badge">Mapped catalogue drape</span>` : ""}
+              ${state.tryOnMode === "premium-fallback" && showingRenderedLook ? `<span class="render-fallback-badge">Mapped catalogue look</span>` : ""}
             </div>
           ` : `
             <div class="upload-zone">
               <div>
                 <img src="${assets.apparel}" alt="" />
                 <strong>Upload Image</strong>
-                <span>Full body image for virtual draping</span>
+                <span>Full body image for AI Lookbook</span>
               </div>
             </div>
           `}
@@ -3077,7 +3100,7 @@ function accountScreen() {
     <main class="page proto-screen" data-screen="account">
       <div class="proto-header">
         <h1>Profile</h1>
-        <p>Your Companion account, stylist read, saved drapes and store benefits in one place.</p>
+        <p>Your Companion account, stylist read, saved looks and store benefits in one place.</p>
       </div>
       <section class="profile-hero">
         <div class="profile-avatar">A</div>
@@ -3094,7 +3117,7 @@ function accountScreen() {
           <strong>2,940</strong>
         </div>
         <div>
-          <span>Saved Drapes</span>
+          <span>Saved Looks</span>
           <strong>${state.lookbookItems.length}</strong>
         </div>
         <div>
@@ -3114,12 +3137,12 @@ function accountScreen() {
           <span>${style.occasion}</span>
           <span>${uploadCopy}</span>
         </div>
-        <button class="wide-dark" data-route="tryon" data-preserve-style="true">Continue Virtual Draping</button>
+        <button class="wide-dark" data-route="tryon" data-preserve-style="true">Continue Lookbook</button>
         <button class="wide-outline" data-action="daily-surprise">Surprise Me For The Day</button>
       </section>
       <section class="profile-lookbook-strip">
         <div class="profile-section-heading">
-          <span>Draping Lookbook</span>
+          <span>AI Lookbook</span>
           <strong>${latest ? "Latest saved" : "Not started"}</strong>
         </div>
         ${latest ? `
@@ -3138,8 +3161,8 @@ function accountScreen() {
           <div class="profile-empty-lookbook">
             <img src="${assets.lookbookSheet}" alt="" />
             <div>
-              <strong>No saved drapes yet</strong>
-              <p>Upload an image and drape a catalogue PDP to build your personal Lookbook.</p>
+              <strong>No saved looks yet</strong>
+              <p>Upload an image and create a catalogue PDP Lookbook.</p>
               <button class="wide-outline" data-route="tryon">Upload Image</button>
             </div>
           </div>
@@ -3186,8 +3209,8 @@ function bagScreen() {
       ` : `
         <div class="placeholder-card">
           <h2>No looks yet</h2>
-          <p>Drape a catalogue product into your Lookbook, then add it here.</p>
-          <button class="wide-dark" data-route="tryon">Start Virtual Draping</button>
+          <p>Create a catalogue product Lookbook, then add it here.</p>
+          <button class="wide-dark" data-route="tryon">Start AI Lookbook</button>
         </div>
       `}
     </main>
@@ -3203,6 +3226,7 @@ function lookbookScreen() {
         <h1>Lookbook</h1>
         <p>${curatedStyleCounts.male + curatedStyleCounts.female} curated style ideas and ${curatedStyleCounts.maleSurprises + curatedStyleCounts.femaleSurprises} daily surprises from the TRENDS store catalogue.</p>
       </div>
+      ${lookbookProgress(latest ? "share" : "lookbook")}
       ${analystNudge("lookbook", guideProduct)}
       ${lookbookStudio(guideProduct, "compact")}
       ${latest ? `
@@ -3211,7 +3235,7 @@ function lookbookScreen() {
             <img src="${latest.image}" alt="${latest.brand} ${latest.name} saved look" />
           </div>
           <div class="lookbook-hero-copy">
-            <span>Latest Draped Look</span>
+            <span>Latest Lookbook</span>
             <strong>${latest.brand}</strong>
             <p>${latest.name} · ${latest.lookbookStyleLabel || latest.environmentLabel || "Store Spotlight"} · ${latest.lookbookStyleCategory || latest.occasion}</p>
             <button class="wide-dark" data-view-look="${latest.id}">Open Look</button>
@@ -3240,7 +3264,7 @@ function lookbookScreen() {
         <section class="empty-lookbook">
           <img src="${assets.lookbookSheet}" alt="" />
           <h2>No saved looks yet</h2>
-          <p>Upload a full body image, open a catalogue PDP, then drape the result directly into this Lookbook.</p>
+          <p>Upload a full body image, open a catalogue PDP, then create the result directly in this Lookbook.</p>
           <button class="wide-dark" data-route="tryon">Upload Image</button>
           <button class="wide-outline" data-route="discover">Browse Catalogue</button>
         </section>
@@ -3308,7 +3332,7 @@ function bottomGroup() {
     : state.renderStatus === "rendered"
       ? "Add To Bag"
       : hasCatalogueSelection
-        ? "Drape Into Lookbook"
+        ? "Create Lookbook"
         : "View Suggested Products";
   const tryonAction = !state.uploadConfirmed
     ? "open-gallery"
@@ -3319,14 +3343,14 @@ function bottomGroup() {
         : "discover";
   const cta = {
     home: ["Scan Item", "scan", assets.bottomBarcode],
-    discover: ["Upload Image For Draping", "tryon", assets.apparel],
-    pdp: ["Drape Into Lookbook", "start-draping", assets.apparel],
+    discover: ["Upload Image For Lookbook", "tryon", assets.apparel],
+    pdp: ["Create Lookbook", "start-draping", assets.apparel],
     tryon: [tryonLabel, tryonAction, assets.apparel],
     lookbook: [state.lookbookItems.length ? "Open Latest Look" : "Browse Catalogue", state.lookbookItems.length ? "open-latest-look" : "discover", assets.hanger],
     tv: ["Back To Lookbook", "lookbook", assets.hanger],
     scan: [state.scanCount >= 3 ? "Discover Products" : "Scan Next Item", state.scanCount >= 3 ? "discover" : "scan-next", assets.bottomBarcode],
     orders: ["Track Latest Order", "track-order", assets.bottomBarcode],
-    account: [state.lookbookItems.length ? "Open Saved Lookbook" : "Start Virtual Draping", state.lookbookItems.length ? "open-lookbook" : "tryon", assets.navAccount],
+    account: [state.lookbookItems.length ? "Open Saved Lookbook" : "Start AI Lookbook", state.lookbookItems.length ? "open-lookbook" : "tryon", assets.navAccount],
     bag: [state.bagItems.length ? "Checkout" : "Discover Products", state.bagItems.length ? "checkout" : "discover", assets.bag],
     search: ["Apply Search", "search-submit", assets.search],
   }[state.route] || ["Scan Item", "scan", assets.bottomBarcode];
@@ -3355,9 +3379,9 @@ function bottomGroup() {
           <img src="${assets.navCategory}" alt="" />
           <span>Category</span>
         </button>
-        <button class="nav-item ${active === "tryon" ? "active" : ""}" data-route="tryon" aria-label="Virtual Draping Product">
+        <button class="nav-item ${active === "tryon" ? "active" : ""}" data-route="tryon" aria-label="AI Lookbook">
           <img src="${assets.navWardrobe}" alt="" />
-          <span class="nav-item-label-long">Virtual Draping<br />Product</span>
+          <span>Lookbook</span>
         </button>
         <button class="nav-item ${active === "account" ? "active" : ""}" data-route="account">
           <img src="${assets.navAccount}" alt="" />

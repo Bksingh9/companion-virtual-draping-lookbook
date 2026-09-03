@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check app.js && node --check server.mjs"
+    "check": "node --check app.js && node --check server.mjs",
+    "qa:flow": "node scripts/qa-lookbook-flow.mjs"
   }
 }

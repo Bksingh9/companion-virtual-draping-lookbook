@@ -1525,6 +1525,67 @@ button {
   text-align: center;
 }
 
+.lookbook-progress {
+  width: 343px;
+  margin: 12px 16px 16px;
+  padding: 10px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  border: 1px solid #eadfca;
+  border-radius: 8px;
+  background: #fffdf8;
+  scrollbar-width: none;
+}
+
+.lookbook-progress::-webkit-scrollbar {
+  display: none;
+}
+
+.lookbook-progress span {
+  flex: 0 0 82px;
+  min-height: 58px;
+  padding: 8px 7px;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 4px;
+  border: 1px solid #eadfca;
+  border-radius: 8px;
+  background: #f8f1e5;
+  color: var(--body);
+}
+
+.lookbook-progress span.done,
+.lookbook-progress span.active {
+  border-color: var(--primary);
+}
+
+.lookbook-progress span.active {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.lookbook-progress i {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #f5cf31;
+  color: var(--primary);
+  font-size: 10px;
+  line-height: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.lookbook-progress b {
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 900;
+}
+
 .gender-switch-wrap {
   width: 343px;
   margin: 0 16px 12px;
