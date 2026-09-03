@@ -10,6 +10,7 @@ globalThis.__qa = {
   castCurrentLook,
   closeGallery,
   copyPromptToClipboard,
+  createLookbookFromStyle,
   curatedStyleCounts,
   generateLookbookVideo,
   openGallery,
@@ -163,13 +164,30 @@ assert(currentHtml.includes("Continue Lookbook"), "Profile must continue Lookboo
 noOldNames();
 
 qa.routeTo("lookbook");
+assert(currentHtml.includes("Curated Lookbook Library"), "Lookbook must expose curated library");
+assert(currentHtml.includes("50 occasion ideas"), "Lookbook must show full 50-style library count");
+assert(currentHtml.includes("Male Styles"), "Lookbook must show male style lane");
+assert(currentHtml.includes("Female Styles"), "Lookbook must show female style lane");
+assert(currentHtml.includes("Create Lookbook"), "Lookbook library cards must expose Create Lookbook actions");
 assert(currentHtml.includes("Latest Lookbook"), "Lookbook must show latest saved hero");
 assert(currentHtml.includes("Share/Bag"), "Lookbook must show final progress step");
 const lookId = qa.state.lookbookItems[0].id;
 qa.removeLookbookItem(lookId);
 assert(qa.state.lookbookItems.length === 0, "Saved Lookbook item must remove");
+assert(currentHtml.includes("Curated Lookbook Library"), "Empty Lookbook must still keep curated library visible");
+
+qa.createLookbookFromStyle("female-office-power-edit");
+assert(qa.state.route === "pdp", "Create Lookbook from library after upload must open PDP");
+assert(qa.state.selectedGender === "female", "Library style must set female lane");
+assert(qa.state.selectedId !== qa.previewProductId, "Library style must anchor to a real catalogue PDP");
+noOldNames();
 
 qa.resetTryOnFlow();
+qa.createLookbookFromStyle("male-brunch-denim-reset");
+assert(qa.state.route === "tryon", "Create Lookbook before upload must return to upload screen");
+assert(qa.state.galleryOpen, "Create Lookbook before upload must open gallery guardrail");
+assert(qa.state.selectedGender === "male", "Library guardrail must preserve requested male lane");
+qa.closeGallery();
 qa.surpriseMeForTheDay();
 assert(qa.state.galleryOpen, "Surprise before upload must request upload first");
 qa.closeGallery();
@@ -193,6 +211,9 @@ console.log(JSON.stringify({
     "cast TV",
     "bag count",
     "profile",
+    "50-style curated lookbook library",
+    "library create-look guardrail",
+    "library create-look PDP route",
     "lookbook remove",
     "female surprise lane",
   ],

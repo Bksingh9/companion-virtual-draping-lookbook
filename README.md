@@ -35,6 +35,13 @@ Run the product-flow QA:
 npm run qa:flow
 ```
 
+Run the browser click-through QA:
+
+```bash
+npm run qa:browser
+QA_REAL_AI=1 QA_URL=http://127.0.0.1:4173/ npm run qa:browser
+```
+
 ## Vertex Setup
 
 Keep credentials outside git. Either set:
@@ -54,4 +61,4 @@ export VERTEX_TRYON_OUTPUT_GCS_URI="gs://your-bucket/path"
 export VERTEX_ANALYSIS_MODEL_ID="gemini-2.5-flash"
 ```
 
-If Vertex image analysis, draping, or video generation fails or is unavailable, the UI falls back to a graceful local recommendation or mapped catalogue drape so the prototype journey does not break.
+If Vertex image analysis, Lookbook image generation, or video generation fails or is unavailable, the UI falls back to a graceful local recommendation or mapped catalogue look so the prototype journey does not break.

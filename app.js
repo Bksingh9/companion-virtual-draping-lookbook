@@ -183,7 +183,7 @@ const cameraDirectorMoves = [
     id: "orbit-reveal",
     label: "Orbit Reveal",
     mood: "premium scan",
-    motion: "begin locked at full-body center, move into a slow 18-degree orbit, pause on the front drape",
+    motion: "begin locked at full-body center, move into a slow 18-degree orbit, pause on the front styling",
     framing: "vertical 9:16, full body, shoes visible, no crop above hair",
     beat: "quiet curiosity opening, clean final hero hold",
   },
@@ -192,7 +192,7 @@ const cameraDirectorMoves = [
     label: "Hero Push-In",
     mood: "store hero",
     motion: "start with a full-body catalogue frame, then push in gently from knee-up to chest detail",
-    framing: "keep trouser line and top drape readable before the detail move",
+    framing: "keep trouser line and top styling readable before the detail move",
     beat: "product confidence reveal for the shopper",
   },
   {
@@ -213,8 +213,8 @@ const cameraDirectorMoves = [
   },
   {
     id: "turntable-drape",
-    label: "Turntable Drape",
-    mood: "drape check",
+    label: "Turntable Reveal",
+    mood: "style check",
     motion: "subtle turntable rotation from front to quarter angle and back to front",
     framing: "catalogue-correct full body with stable floor contact",
     beat: "helps the shopper inspect fall, colour and silhouette",
@@ -361,7 +361,7 @@ const curatedLookbookStyles = [
     cameraId: "runway-walk",
     accent: "#d37f5e",
     confidence: "91%",
-    story: "A lighter holiday edit with fresh contrast, relaxed drape and a clean vertical reveal.",
+    story: "A lighter holiday edit with fresh contrast, relaxed fit and a clean vertical reveal.",
     reason: "White and olive products reset the stadium image into a travel-ready look without feeling costume-like.",
     cta: "Build the resort frame",
     productIds: ["dnmx-white-tee-trouser-look", "performax-olive-tee-look", "netplay-navy-polo-look", "teamspirit-beige-jacket-look", "teamspirit-black-bomber-look"],
@@ -515,7 +515,7 @@ const maleAdditionalLookbooks = [
     cameraId: "orbit-reveal",
     accent: "#a27753",
     confidence: "95%",
-    angle: "light top contrast and comfort-first drape for a fresh daytime look",
+    angle: "light top contrast and comfort-first styling for a fresh daytime look",
     tags: ["Men Topwear", "Casual", "Smart Casual", "Reorder Products"],
   },
   {
@@ -651,7 +651,7 @@ const femaleLookbookBlueprints = [
     accent: "#d88f9f",
     confidence: "95%",
     productIds: ["trends-white-pink-ethnic-look", "avaasa-printed-kurta-set", "avaasa-yellow-festive-dress", "avaasa-pink-ethnic-set", "dnmx-olive-denim-coord"],
-    angle: "soft festive colour, graceful drape and a warm celebration frame",
+    angle: "soft festive colour, graceful silhouette and a warm celebration frame",
     tags: ["Women Topwear", "Ethnic", "Celebration", "Brand Store"],
   },
   {
@@ -729,7 +729,7 @@ const femaleLookbookBlueprints = [
     cameraId: "tv-poster-loop",
     accent: "#c79d48",
     confidence: "93%",
-    angle: "occasion colour, graceful full-length drape and shareable celebration polish",
+    angle: "occasion colour, graceful full-length silhouette and shareable celebration polish",
     tags: ["Women Topwear", "Ethnic", "Celebration", "Store Exclusive Discount"],
   },
   {
@@ -1048,7 +1048,7 @@ const products = [
     fabric: "Poly woven shell",
     sizes: ["M", "L", "XL", "XXL"],
     styleMatch: "92%",
-    drapeNote: "The black bomber creates a single-tone outfit with a stronger streetwear read after draping.",
+    drapeNote: "The black bomber creates a single-tone outfit with a stronger streetwear read after styling.",
     occasion: "Evening casual",
     price: "Rs.2,999",
     mrp: "Rs.4,999",
@@ -1737,12 +1737,12 @@ async function analyzeUploadedImage(meta = {}) {
       applyRecommendedLane(nextGender, { style: nextStyle, meta, selectProduct: false });
     }
     state.autoSuggestStatus = "ready";
-    state.autoSuggestNote = data.note || `${genderLabel(nextGender)} catalogue lane unlocked from the image read. Choose a PDP to drape next.`;
+    state.autoSuggestNote = data.note || `${genderLabel(nextGender)} catalogue lane unlocked from the image read. Choose a PDP to style next.`;
     render();
   } catch {
     if (state.latestAnalysisToken !== analysisToken) return;
     state.autoSuggestStatus = "ready";
-    state.autoSuggestNote = `${genderLabel(state.selectedGender)} catalogue lane unlocked from gallery and upload signals. Choose a suggested PDP to drape next.`;
+    state.autoSuggestNote = `${genderLabel(state.selectedGender)} catalogue lane unlocked from gallery and upload signals. Choose a suggested PDP to style next.`;
     render();
   }
 }
@@ -1874,13 +1874,13 @@ async function renderOnModel() {
   state.tryOnImageUri = "";
   state.tryOnMode = "";
   state.tryOnError = "";
-  state.tryOnMessage = `Senior Stylist is draping ${product.brand} for ${style.label}`;
+  state.tryOnMessage = `Senior Stylist is styling ${product.brand} for ${style.label}`;
   clearVideoState();
   render();
   resetScroll();
   try {
     if (isStaticPrototypeHost()) {
-      throw new Error("Static prototype uses the mapped catalogue drape");
+      throw new Error("Static prototype uses the mapped catalogue look");
     }
     const personPayload = state.uploadedPhoto && state.uploadedPhoto.startsWith("data:image/")
       ? { personImageDataUrl: state.uploadedPhoto }
@@ -1912,7 +1912,7 @@ async function renderOnModel() {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || "Virtual draping failed");
+      throw new Error(data.error || "Lookbook image generation failed");
     }
     if (state.tryOnRequestToken !== requestToken) return;
     state.renderedId = state.selectedId;
@@ -1920,12 +1920,12 @@ async function renderOnModel() {
     state.tryOnImageUri = data.imageUri || "";
     state.tryOnMode = data.mode || "vertex-try-on";
     state.tryOnMessage = data.imageDataUrl || data.imageUrl
-      ? "AI draped lookbook image created and saved"
-      : "AI drape stored remotely. Showing the mapped catalogue drape in this prototype.";
+      ? "AI Lookbook image created and saved"
+      : "AI image stored remotely. Showing the mapped catalogue look in this prototype.";
     state.renderStatus = "rendered";
     saveCurrentLookToLookbook({ silent: true });
     render();
-    flash(data.mode === "mock" ? "Lookbook drape ready" : "AI lookbook drape ready");
+    flash(data.mode === "mock" ? "Lookbook ready" : "AI Lookbook ready");
   } catch (error) {
     if (state.tryOnRequestToken !== requestToken) return;
     state.renderedId = state.selectedId;
@@ -1933,17 +1933,17 @@ async function renderOnModel() {
     state.tryOnImageUri = "";
     state.tryOnMode = "premium-fallback";
     state.tryOnError = error.message;
-    state.tryOnMessage = "Using the mapped catalogue drape while AI draping is unavailable.";
+    state.tryOnMessage = "Using the mapped catalogue look while AI image generation is unavailable.";
     state.renderStatus = "rendered";
     saveCurrentLookToLookbook({ silent: true });
     render();
-    flash("Lookbook drape saved");
+    flash("Lookbook saved");
   }
 }
 
 function saveCurrentLookToLookbook(options = {}) {
   if (state.renderStatus !== "rendered") {
-    flash("Drape into Lookbook first");
+    flash("Create a Lookbook first");
     return false;
   }
   const product = renderedProduct();
@@ -2014,7 +2014,7 @@ function addCurrentLook() {
 
 function shareCurrentLook() {
   if (state.renderStatus !== "rendered") {
-    flash("Drape into Lookbook first");
+    flash("Create a Lookbook first");
     return;
   }
   saveCurrentLookToLookbook({ silent: true });
@@ -2034,7 +2034,7 @@ function shareCurrentLook() {
 
 function castCurrentLook() {
   if (state.renderStatus !== "rendered") {
-    flash("Drape into Lookbook first");
+    flash("Create a Lookbook first");
     return;
   }
   saveCurrentLookToLookbook({ silent: true });
@@ -2085,7 +2085,7 @@ function saveProductForLookbook() {
     return;
   }
   startProductDraping();
-  flash("Drape this PDP into Lookbook first");
+  flash("Create this PDP as a Lookbook first");
 }
 
 function tryAnotherLook() {
@@ -2129,7 +2129,7 @@ function copyPromptToClipboard() {
 function reverseLookbookPrompt(product, environment = selectedEnvironment(), cameraMove = selectedCameraMove(), style = selectedLookbookStyle()) {
   const avatarAnchor = state.uploadedPhoto && state.uploadedPhoto.startsWith("data:image/")
     ? "Use the uploaded customer image as the avatar identity anchor and adapt the selected PDP outfit onto that person."
-    : "Use the draped catalogue lookbook image as the first-frame avatar identity anchor.";
+    : "Use the generated catalogue lookbook image as the first-frame avatar identity anchor.";
   return [
     "TRENDS AI Senior Stylist reverse prompt for a vertical 9:16 in-store lookbook video.",
     avatarAnchor,
@@ -2141,7 +2141,7 @@ function reverseLookbookPrompt(product, environment = selectedEnvironment(), cam
     `Styling intent: ${product.drapeNote}`,
     `Journey: start with curiosity, reveal one tasteful surprise beat, then end with gratification: ${environment.gratification}.`,
     `Keep an adult ${state.selectedGender} full-body frame, appropriate complete outfit coverage, consistent face/body identity, unchanged garment category, premium store catalogue lighting, and no distorted hands or text artifacts.`,
-    "Do not imply guaranteed fit; show style, drape, colour, and occasion confidence only.",
+    "Do not imply guaranteed fit; show style, colour, silhouette, and occasion confidence only.",
   ].join(" ");
 }
 
@@ -2151,7 +2151,7 @@ function videoPrompt(product) {
 
 async function generateLookbookVideo() {
   if (state.renderStatus !== "rendered") {
-    flash("Drape into Lookbook first");
+    flash("Create a Lookbook first");
     return;
   }
   const product = renderedProduct();
@@ -2615,6 +2615,102 @@ function productCard(product) {
   `;
 }
 
+function primaryProductForStyle(style) {
+  const pool = products.filter((product) => product.gender === normalizedGender(style.gender) && product.id !== previewProductId);
+  return (style.productIds || [])
+    .map((id) => pool.find((product) => product.id === id))
+    .find(Boolean) || pool[0] || products[0];
+}
+
+function createLookbookFromStyle(id) {
+  const style = curatedLookbookStyles.find((item) => item.id === id);
+  if (!style) return;
+  state.selectedGender = normalizedGender(style.gender);
+  state.detectedGender = state.detectedGender || state.selectedGender;
+  state.selectedLookbookStyleId = style.id;
+  syncLookbookStyleInternals(style);
+  const product = primaryProductForStyle(style);
+  state.selectedId = product.id;
+  state.renderedId = previewProductId;
+  state.selectedSize = "";
+  state.activeCollection = style.tags[0] || (state.selectedGender === "female" ? "Women Topwear" : "Men Topwear");
+  state.searchQuery = "";
+  state.dailySurpriseId = style.dailySurprise ? style.id : "";
+  state.autoSuggestStatus = state.uploadConfirmed ? "ready" : "idle";
+  state.autoSuggestNote = state.uploadConfirmed
+    ? `${style.label} selected with ${product.brand} ${product.name} as the PDP anchor.`
+    : `${style.label} selected. Upload an image so I can build this Lookbook around the shopper.`;
+  clearTryOnOutput();
+  if (!state.uploadConfirmed) {
+    state.route = "tryon";
+    state.renderStatus = "ready";
+    state.galleryOpen = true;
+    render();
+    resetScroll();
+    flash("Upload an image first");
+    return;
+  }
+  state.route = "pdp";
+  state.renderStatus = "selected";
+  render();
+  resetScroll();
+  flash(`${style.label} ready`);
+}
+
+function lookbookStyleCard(style, index) {
+  const product = primaryProductForStyle(style);
+  return `
+    <article class="style-library-card" style="--style-accent:${style.accent}">
+      <button class="style-library-image" data-create-style="${style.id}" aria-label="Create ${style.label} Lookbook">
+        <img src="${product.tryonImage || product.image}" alt="${style.label} ${product.brand} look" />
+        <span>${style.dailySurprise ? "Surprise" : `Look ${String(index + 1).padStart(2, "0")}`}</span>
+      </button>
+      <div class="style-library-copy">
+        <em>${style.gender === "female" ? "Female" : "Male"} · ${style.category}</em>
+        <strong>${style.label}</strong>
+        <p>${style.occasion}</p>
+        <b>${style.confidence} stylist match</b>
+      </div>
+      <button class="style-library-action" data-create-style="${style.id}">Create Lookbook</button>
+    </article>
+  `;
+}
+
+function lookbookLibrarySection() {
+  const lanes = [
+    ["male", "Male Styles"],
+    ["female", "Female Styles"],
+  ];
+  return `
+    <section class="lookbook-library">
+      <div class="library-heading">
+        <span>Curated Lookbook Library</span>
+        <strong>${curatedStyleCounts.male + curatedStyleCounts.female} occasion ideas</strong>
+        <p>Office, dates, casual plans, sport wear, ethnic moments, travel, resort, celebrations and store hero looks, ready to create from the uploaded image.</p>
+      </div>
+      <div class="library-actions">
+        <button class="wide-dark" data-action="auto-suggest">Auto Suggest From Upload</button>
+        <button class="wide-outline" data-action="daily-surprise">Surprise Me For The Day</button>
+      </div>
+      ${lanes.map(([gender, label]) => {
+        const styles = genderStyles(gender);
+        const surpriseCount = styles.filter((style) => style.dailySurprise).length;
+        return `
+          <div class="library-lane">
+            <div class="library-lane-heading">
+              <span>${label}</span>
+              <b>${styles.length} styles · ${surpriseCount} surprises</b>
+            </div>
+            <div class="style-library-rail rail">
+              ${styles.map((style, index) => lookbookStyleCard(style, index)).join("")}
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </section>
+  `;
+}
+
 function analystNudge(context, product = selectedProduct()) {
   const style = selectedLookbookStyle();
   const copy = {
@@ -2678,13 +2774,13 @@ function stylistPanel(product, compact = false) {
 }
 
 function reversePromptPreview(product, environment = selectedEnvironment(), cameraMove = selectedCameraMove(), style = selectedLookbookStyle()) {
-  return `${style.label}: use the uploaded identity with ${product.brand} ${product.name}, style it for ${style.occasion}, and preserve face, body proportions, trouser coverage, colour and drape.`;
+  return `${style.label}: use the uploaded identity with ${product.brand} ${product.name}, style it for ${style.occasion}, and preserve face, body proportions, trouser coverage, colour and silhouette.`;
 }
 
 function guardrailPanel(compact = false) {
   const statusCopy = state.uploadConfirmed
     ? state.guardrailStatus === "partial"
-      ? "Accepted with a note: this lifestyle image can style the look, but a clean full-body front pose gives better drape."
+      ? "Accepted with a note: this lifestyle image can style the look, but a clean full-body front pose gives better accuracy."
       : "Image accepted. Catalogue suggestions are unlocked."
     : "Upload a clear adult image before suggestions unlock.";
   return `
@@ -2843,7 +2939,7 @@ function resultActionPanel(product) {
     <section class="result-actions">
       <div class="result-note">
         <strong>${product.brand} ${style.label} saved to Lookbook</strong>
-        <span>${state.tryOnMessage || "Preview shows style, colour and drape on the uploaded image."}${state.tryOnError ? ` Recreate remains available if you want a fresh AI attempt.` : ""}</span>
+        <span>${state.tryOnMessage || "Preview shows style, colour and silhouette on the uploaded image."}${state.tryOnError ? ` Recreate remains available if you want a fresh AI attempt.` : ""}</span>
       </div>
       ${videoActive ? videoStatusPanel(product) : ""}
       <button class="wide-dark" data-action="add-to-bag">Add To Bag</button>
@@ -2875,7 +2971,7 @@ function videoStatusPanel(product) {
       </div>
       <div class="video-copy">
         <strong>${statusLabel}</strong>
-        <p>${state.videoMessage || `Short ${style.label} lookbook video for this draped outfit.`}</p>
+        <p>${state.videoMessage || `Short ${style.label} lookbook video for this styled outfit.`}</p>
         ${state.videoUri ? `
           <button data-action="copy-video-uri">Copy Video URI</button>
           <em>${state.videoUri}</em>
@@ -2978,7 +3074,7 @@ function tryOnScreen() {
         <section class="upload-read-card">
           <span>Style Read Complete</span>
           <strong>${state.uploadedPhotoTitle || "Uploaded Image"}</strong>
-          <p>${state.guardrailStatus === "partial" ? "Lifestyle image accepted. A clean full-body front pose will improve AI drape accuracy." : "Image accepted. I am matching your avatar to curated store catalogue edits."}</p>
+          <p>${state.guardrailStatus === "partial" ? "Lifestyle image accepted. A clean full-body front pose will improve AI styling accuracy." : "Image accepted. I am matching your avatar to curated store catalogue edits."}</p>
         </section>
         ${autoSuggestPanel()}
         ${stylistPanel(guidedProduct, true)}
@@ -3228,6 +3324,7 @@ function lookbookScreen() {
       </div>
       ${lookbookProgress(latest ? "share" : "lookbook")}
       ${analystNudge("lookbook", guideProduct)}
+      ${lookbookLibrarySection()}
       ${lookbookStudio(guideProduct, "compact")}
       ${latest ? `
         <section class="lookbook-hero">
@@ -3312,7 +3409,7 @@ function searchScreen() {
     <main class="page proto-screen" data-screen="search">
       <div class="proto-header">
         <h1>Search</h1>
-        <p>Find in-store catalogue products, brands, offers, and draping-ready looks.</p>
+        <p>Find in-store catalogue products, brands, offers, and Lookbook-ready looks.</p>
       </div>
       <div class="search-panel">
         <input data-search-input value="${escapeHTML(state.searchQuery)}" placeholder="Search ${genderLabel().toLowerCase()} products" />
@@ -3582,6 +3679,13 @@ function bindEvents() {
 
   document.querySelectorAll("[data-select-product]").forEach((el) => {
     el.addEventListener("click", () => selectProduct(el.dataset.selectProduct));
+  });
+
+  document.querySelectorAll("[data-create-style]").forEach((el) => {
+    el.addEventListener("click", (event) => {
+      event.stopPropagation();
+      createLookbookFromStyle(el.dataset.createStyle);
+    });
   });
 
   document.querySelectorAll("[data-env]").forEach((el) => {
