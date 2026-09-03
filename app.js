@@ -2282,7 +2282,7 @@ function featureTopChrome() {
     tv: ["Store TV Preview", "30 sec cast"],
     scan: ["Scan Items", `${state.scanCount}/3 scanned`],
     orders: ["Order History", "TRENDS"],
-    account: ["Account", "2,940 points"],
+    account: ["Profile", "AI Stylist account"],
     bag: ["Bag", `${state.bagItems.length} looks`],
     search: ["Search", "TRENDS"],
   };
@@ -3035,18 +3035,97 @@ function ordersScreen() {
 }
 
 function accountScreen() {
+  const latest = latestLookbookItem();
+  const style = selectedLookbookStyle();
+  const uploadCopy = state.uploadConfirmed
+    ? `${state.uploadedPhotoTitle || "Uploaded avatar"} · ${genderLabel()} catalogue lane`
+    : "Upload pending · image read will unlock suggestions";
   return `
     <main class="page proto-screen" data-screen="account">
       <div class="proto-header">
-        <h1>Account</h1>
-        <p>2,940 points available for this store visit.</p>
+        <h1>Profile</h1>
+        <p>Your Companion account, stylist read, saved drapes and store benefits in one place.</p>
       </div>
-      <div class="placeholder-card account-card">
-        <strong>Ashutosh</strong>
-        <span>TRENDS, Phoenix Mall Of Asia</span>
-        <button class="wide-outline" data-action="redeem">Redeem Store Offer</button>
-        <button class="wide-dark" data-route="tryon">Open Virtual Draping</button>
-      </div>
+      <section class="profile-hero">
+        <div class="profile-avatar">A</div>
+        <div class="profile-copy">
+          <span>Welcome back</span>
+          <strong>Ashutosh</strong>
+          <p>TRENDS, Phoenix Mall Of Asia · Bangalore</p>
+        </div>
+        <button data-action="redeem">Redeem</button>
+      </section>
+      <section class="profile-score-grid">
+        <div>
+          <span>Points</span>
+          <strong>2,940</strong>
+        </div>
+        <div>
+          <span>Saved Drapes</span>
+          <strong>${state.lookbookItems.length}</strong>
+        </div>
+        <div>
+          <span>Bag</span>
+          <strong>${state.bagItems.length}</strong>
+        </div>
+      </section>
+      <section class="profile-style-card">
+        <div class="profile-section-heading">
+          <span>AI Senior Stylist</span>
+          <strong>${style.confidence}</strong>
+        </div>
+        <h2>${style.label}</h2>
+        <p>${style.reason}</p>
+        <div class="profile-tags">
+          <span>${style.category}</span>
+          <span>${style.occasion}</span>
+          <span>${uploadCopy}</span>
+        </div>
+        <button class="wide-dark" data-route="tryon" data-preserve-style="true">Continue Virtual Draping</button>
+        <button class="wide-outline" data-action="daily-surprise">Surprise Me For The Day</button>
+      </section>
+      <section class="profile-lookbook-strip">
+        <div class="profile-section-heading">
+          <span>Draping Lookbook</span>
+          <strong>${latest ? "Latest saved" : "Not started"}</strong>
+        </div>
+        ${latest ? `
+          <article class="profile-lookbook-preview">
+            <button class="profile-lookbook-image" data-view-look="${latest.id}" aria-label="Open ${latest.name}">
+              <img src="${latest.image}" alt="${latest.brand} ${latest.name}" />
+            </button>
+            <div>
+              <strong>${latest.brand}</strong>
+              <p>${latest.name}</p>
+              <span>${latest.lookbookStyleLabel || latest.environmentLabel || "Curated Lookbook"} · ${latest.price}</span>
+              <button class="wide-outline" data-action="open-lookbook">Open Lookbook</button>
+            </div>
+          </article>
+        ` : `
+          <div class="profile-empty-lookbook">
+            <img src="${assets.lookbookSheet}" alt="" />
+            <div>
+              <strong>No saved drapes yet</strong>
+              <p>Upload an image and drape a catalogue PDP to build your personal Lookbook.</p>
+              <button class="wide-outline" data-route="tryon">Upload Image</button>
+            </div>
+          </div>
+        `}
+      </section>
+      <section class="profile-action-list">
+        <button data-route="orders">
+          <span>Order History</span>
+          <strong>Track and reorder</strong>
+        </button>
+        <button data-route="bag">
+          <span>Bag</span>
+          <strong>${state.bagItems.length} ${state.bagItems.length === 1 ? "look" : "looks"} added</strong>
+        </button>
+        <button data-route="discover">
+          <span>Catalogue</span>
+          <strong>Browse products</strong>
+        </button>
+      </section>
     </main>
   `;
 }
@@ -3214,17 +3293,17 @@ function bottomGroup() {
     tv: ["Back To Lookbook", "lookbook", assets.hanger],
     scan: [state.scanCount >= 3 ? "Discover Products" : "Scan Next Item", state.scanCount >= 3 ? "discover" : "scan-next", assets.bottomBarcode],
     orders: ["Track Latest Order", "track-order", assets.bottomBarcode],
-    account: ["Redeem Offer", "redeem", assets.apparel],
+    account: [state.lookbookItems.length ? "Open Saved Lookbook" : "Start Virtual Draping", state.lookbookItems.length ? "open-lookbook" : "tryon", assets.navAccount],
     bag: [state.bagItems.length ? "Checkout" : "Discover Products", state.bagItems.length ? "checkout" : "discover", assets.bag],
     search: ["Apply Search", "search-submit", assets.search],
   }[state.route] || ["Scan Item", "scan", assets.bottomBarcode];
 
   const active = state.route === "discover" || state.route === "search" || state.route === "pdp"
     ? "discover"
-    : state.route === "tryon"
+    : state.route === "tryon" || state.route === "lookbook" || state.route === "tv"
       ? "tryon"
-      : state.route === "lookbook" || state.route === "tv"
-        ? "lookbook"
+      : state.route === "account" || state.route === "orders"
+        ? "account"
         : "home";
   return `
     <footer class="bottom-group" data-node-id="5516:46365">
@@ -3237,19 +3316,19 @@ function bottomGroup() {
       <nav class="bottom-nav" aria-label="Companion App Bottom Sheet" data-node-id="5516:46368">
         <button class="nav-item ${active === "home" ? "active" : ""}" data-route="home">
           <img src="${assets.navHome}" alt="" />
-          <span>Home</span>
+          <span class="nav-item-label-long">Switch<br />Stores</span>
         </button>
         <button class="nav-item ${active === "discover" ? "active" : ""}" data-route="discover">
           <img src="${assets.navCategory}" alt="" />
-          <span>Discover</span>
+          <span>Category</span>
         </button>
         <button class="nav-item ${active === "tryon" ? "active" : ""}" data-route="tryon" aria-label="Virtual Draping Product">
           <img src="${assets.navWardrobe}" alt="" />
           <span class="nav-item-label-long">Virtual Draping<br />Product</span>
         </button>
-        <button class="nav-item ${active === "lookbook" ? "active" : ""}" data-route="lookbook">
-          <img src="${assets.hanger}" alt="" />
-          <span>Lookbook</span>
+        <button class="nav-item ${active === "account" ? "active" : ""}" data-route="account">
+          <img src="${assets.navAccount}" alt="" />
+          <span>Account</span>
         </button>
       </nav>
       <div class="home-indicator" data-node-id="5516:46369"><span></span></div>

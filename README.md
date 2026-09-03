@@ -13,7 +13,7 @@ Premium TRENDS Companion prototype for a Senior Stylist-led virtual draping jour
 7. Open catalogue/PDP suggestions.
 8. Generate a virtual draping image with Vertex `virtual-try-on-001`.
 9. Use the generated draped image as the first frame for lookbook video generation.
-10. Save, share, cast, or add the look to bag.
+10. Save, share, cast, add to bag, or reopen the draped Lookbook from the Profile hub.
 
 ## Run Locally
 
