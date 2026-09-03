@@ -14,6 +14,8 @@ globalThis.__qa = {
   curatedStyleCounts,
   curatedLookbookStyles,
   generateLookbookVideo,
+  liveMomentCategories,
+  liveMomentOutlooks,
   openGallery,
   pickSize,
   previewProductId,
@@ -22,6 +24,7 @@ globalThis.__qa = {
   routeTo,
   selectGalleryImage,
   selectGalleryTab,
+  selectLiveMoment,
   shareCurrentLook,
   startProductDraping,
   state,
@@ -160,6 +163,7 @@ assert(qa.curatedStyleCounts.maleSurprises === 10, "Expected 10 male daily surpr
 assert(qa.curatedStyleCounts.femaleSurprises === 10, "Expected 10 female daily surprises");
 assert(qa.curatedLookbookStyles.length === 50, "Expected 50 total curated style definitions");
 assert(new Set(qa.curatedLookbookStyles.map((style) => style.id)).size === 50, "Curated style IDs must be unique");
+assert(qa.liveMomentCategories.length === 10, "Expected 10 Live Moment categories");
 assert(currentHtml.includes("AI Lookbook"), "Home must expose AI Lookbook");
 noOldNames();
 
@@ -186,10 +190,20 @@ assert(qa.visibleGalleryImages().every((item) => item.id !== "real-model-stadium
 assert(qa.state.selectedId === qa.previewProductId, "Upload must not preselect PDP");
 assert(currentHtml.includes("Style Read Complete"), "Style read must show after upload");
 assert(currentHtml.includes("Suggested Products Based On Upload"), "Suggestions must unlock after upload");
+assert(currentHtml.includes("Choose Live Moment"), "Upload must unlock Live Moment chooser");
+assert(currentHtml.includes("Live Moment Outlooks"), "Upload must show multiple Live Moment outlooks");
+assert(currentHtml.includes("Outlook 01"), "Live Moment board must expose outlook cards");
+assert(qa.liveMomentOutlooks("Date", qa.state.selectedGender, 6).length >= 3, "Date moment must produce multiple outlooks");
+qa.selectLiveMoment("Date");
+assert(qa.state.selectedLiveMoment === "Date", "Selecting Date must update Live Moment state");
+assert(qa.state.selectedLookbookStyleId.includes("date") || currentHtml.includes("Date ·"), "Date moment must update visible outlooks");
+qa.selectLiveMoment("Office");
+assert(qa.state.selectedLiveMoment === "Office", "Selecting Office must update Live Moment state");
 noOldNames();
 
 qa.autoSuggestLook();
 assert(qa.state.route === "pdp", "Auto suggest must open PDP");
+assert(qa.state.selectedLiveMoment === "Office", "Auto suggest must respect selected Live Moment");
 assert(currentHtml.includes("Create Lookbook"), "PDP must expose Create Lookbook CTA");
 assert(currentHtml.indexOf("lookbook-progress") < currentHtml.indexOf("pdp-hero"), "PDP progress must appear before hero");
 qa.pickSize("M");
@@ -279,6 +293,7 @@ console.log(JSON.stringify({
     "upload guardrail",
     "gallery selection",
     "suggested products",
+    "Live Moment outlook selector",
     "PDP Create Lookbook",
     "visible loading states",
     "saved Lookbook result",

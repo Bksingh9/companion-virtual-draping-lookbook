@@ -18,6 +18,7 @@ if (!chromePath) {
 }
 
 const requestedUrl = process.env.QA_URL || "http://127.0.0.1:4173/";
+const currentLiveApiBase = (process.env.QA_API_BASE || "https://ffdc1021246b22.lhr.life").replace(/\/+$/, "");
 const port = Number(process.env.QA_CDP_PORT || 9433 + Math.floor(Math.random() * 300));
 const profileDir = await mkdtemp(path.join(tmpdir(), "companion-chrome-qa-"));
 
@@ -35,23 +36,30 @@ async function fetchJson(url, options) {
   return response.json();
 }
 
-function apiBaseForAppUrl(url) {
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function apiBaseCandidatesForAppUrl(url) {
   const parsed = new URL(url);
   const queryBase = parsed.searchParams.get("apiBase");
-  if (queryBase) return queryBase.replace(/\/+$/, "");
-  if (parsed.protocol === "file:" || parsed.hostname.endsWith("github.io")) return "http://127.0.0.1:4173";
-  if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed.origin;
-  return "";
+  const bases = [];
+  if (queryBase) bases.push(queryBase.replace(/\/+$/, ""));
+  if (parsed.protocol === "file:" || parsed.hostname.endsWith("github.io")) bases.push(currentLiveApiBase);
+  if (parsed.protocol !== "https:") bases.push("http://127.0.0.1:4173");
+  if (parsed.protocol === "http:" || parsed.protocol === "https:") bases.push(parsed.origin);
+  return unique(bases.map((base) => base.replace(/\/+$/, "")));
 }
 
 async function maybeVertexStatus(url) {
-  const apiBase = apiBaseForAppUrl(url);
-  if (!apiBase) return null;
-  try {
-    return await fetchJson(new URL("/api/vertex/status", apiBase).href);
-  } catch {
-    return null;
+  for (const apiBase of apiBaseCandidatesForAppUrl(url)) {
+    try {
+      return await fetchJson(new URL("/api/vertex/status", apiBase).href);
+    } catch {
+      // Continue so stale tunnels in query params do not block the public-link QA.
+    }
   }
+  return null;
 }
 
 let appUrl = requestedUrl;
@@ -246,6 +254,7 @@ async function pageMetrics() {
       "[data-env]",
       "[data-camera]",
       "[data-style]",
+      "[data-moment]",
       "[data-gender]",
       "[data-gallery-image]",
       "[data-gallery-tab]",
@@ -298,10 +307,17 @@ try {
   await click('[data-gallery-image="real-model-stadium"]', "real model gallery tile");
 	  await waitFor("style read and suggestions", `(() => {
 	    const text = document.body.innerText.toLowerCase();
-	    return text.includes("style read complete") && text.includes("suggested products based on upload");
+	    return text.includes("style read complete") &&
+	      text.includes("suggested products based on upload") &&
+	      text.includes("choose live moment") &&
+	      text.includes("live moment outlooks");
 	  })()`, 70000);
+	  await click('[data-moment="Date"]', "Date Live Moment");
+	  await waitFor("Date Live Moment selection", `(window.__COMPANION_QA_STATE__ || {}).selectedLiveMoment === "Date"`);
+	  await click('[data-moment="Office"]', "Office Live Moment");
+	  await waitFor("Office Live Moment selection", `(window.__COMPANION_QA_STATE__ || {}).selectedLiveMoment === "Office"`);
 
-  await click('[data-action="auto-suggest"]', "Auto Suggest From Upload");
+	  await click('[data-action="auto-suggest"]', "Auto Suggest From Upload");
   await waitFor("PDP Create Lookbook", `document.body.innerText.includes("Create Lookbook") && Boolean(document.querySelector(".pdp-hero"))`);
 
 	  await click('[data-action="start-draping"]', "Create Lookbook");
@@ -319,6 +335,8 @@ try {
 	    return "rendered";
 	  })()`);
 	  assert(renderMode === "vertex-try-on", `Expected Vertex try-on image, received ${renderMode}`);
+	  const activeApiBase = await evaluate(`(window.__COMPANION_QA_STATE__ || {}).activeApiBase || ""`);
+	  assert(activeApiBase === currentLiveApiBase || !appUrl.includes("github.io"), `Expected app to recover to ${currentLiveApiBase}, got ${activeApiBase}`);
 
 	  await click('[data-action="generate-video"]', "Generate Lookbook Video");
 	  await waitFor("Generate Lookbook Video loading spinner", `(() => {
@@ -329,19 +347,22 @@ try {
 	  })()`, 8000);
 	  await waitFor("real Veo video panel", `(() => {
 	    const qaState = window.__COMPANION_QA_STATE__ || {};
+	    const video = document.querySelector(".video-thumb video");
 	    return qaState.videoStatus === "ready" &&
 	      qaState.videoMode === "vertex" &&
 	      Boolean(qaState.videoUrl) &&
-	      Boolean(document.querySelector(".video-thumb video"));
+	      Boolean(video) &&
+	      video.readyState >= 1;
 	  })()`, 210000);
 	  videoProbe = await evaluate(`(() => ({
 	    ready: document.body.innerText.includes("Video Ready"),
 	    hasVideo: Boolean(document.querySelector(".video-thumb video")),
+	    readyState: document.querySelector(".video-thumb video")?.readyState || 0,
 	    mode: document.querySelector(".video-copy p")?.textContent.includes("Vertex generated") ? "vertex" : "",
 	    message: document.querySelector(".video-copy p")?.textContent.trim() || "",
 	    src: document.querySelector(".video-thumb video")?.getAttribute("src") || ""
 	  }))()`);
-	  assert(videoProbe.ready && videoProbe.hasVideo, "Expected a playable Veo-generated video element.");
+	  assert(videoProbe.ready && videoProbe.hasVideo && videoProbe.readyState >= 1, "Expected a playable Veo-generated video element.");
 	  assert(videoProbe.mode === "vertex", `Expected Vertex video message, got ${videoProbe.message}`);
   await click('[data-action="open-lookbook"]', "Lookbook action");
   await waitFor("curated Lookbook library", `(() => {
@@ -374,6 +395,7 @@ try {
 	      modelId: initialStatus.modelId,
 	      tryOnModelId: initialStatus.tryOnModelId,
 	    },
+	    activeApiBase,
 	    renderMode,
 	    videoMode: videoProbe.mode,
 	    videoProbe,

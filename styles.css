@@ -1637,6 +1637,199 @@ button {
   line-height: 16px;
 }
 
+.live-moment-board {
+  width: 375px;
+  padding: 0 16px 18px;
+}
+
+.live-moment-selector {
+  width: 343px;
+  margin: 0 16px 16px;
+  padding: 14px;
+  border: 1px solid #dfd0b7;
+  border-radius: 8px;
+  background: #fffaf1;
+  box-shadow: 0 12px 26px rgba(80, 58, 32, 0.08);
+}
+
+.live-moment-board .live-moment-selector {
+  width: auto;
+  margin: 0 0 14px;
+}
+
+.live-moment-selector-head span,
+.live-outlook-heading span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.live-moment-selector-head strong,
+.live-outlook-heading strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--primary);
+  font-size: 18px;
+  line-height: 23px;
+  font-weight: 900;
+}
+
+.live-moment-selector-head p,
+.live-outlook-heading p,
+.live-outlook-copy p {
+  margin: 6px 0 0;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.moment-chip-rail,
+.live-outlook-rail {
+  width: 100%;
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+}
+
+.moment-chip-rail button {
+  flex: 0 0 128px;
+  min-height: 74px;
+  padding: 10px;
+  border: 1px solid #e3d4ba;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--primary);
+  text-align: left;
+}
+
+.moment-chip-rail button.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.moment-chip-rail strong,
+.moment-chip-rail span {
+  display: block;
+}
+
+.moment-chip-rail strong {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 900;
+}
+
+.moment-chip-rail span {
+  margin-top: 5px;
+  color: inherit;
+  font-size: 9px;
+  line-height: 12px;
+  opacity: 0.72;
+}
+
+.live-outlook-heading {
+  margin-top: 14px;
+}
+
+.live-outlook-card {
+  flex: 0 0 244px;
+  overflow: hidden;
+  border: 1px solid #e5d7be;
+  border-radius: 8px;
+  background: #fffdf8;
+  box-shadow: 0 10px 22px rgba(80, 58, 32, 0.09);
+}
+
+.live-outlook-card.active {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary), 0 10px 22px rgba(80, 58, 32, 0.09);
+}
+
+.live-outlook-image {
+  position: relative;
+  width: 100%;
+  height: 252px;
+  background: #eeeeee;
+}
+
+.live-outlook-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.live-outlook-image span {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--primary);
+  font-size: 9px;
+  line-height: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.live-outlook-copy {
+  padding: 12px;
+}
+
+.live-outlook-copy em {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 12px;
+  font-style: normal;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.live-outlook-copy strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--primary);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 900;
+}
+
+.outlook-tags {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.outlook-tags span {
+  min-height: 24px;
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: #f2eadc;
+  color: var(--primary);
+  font-size: 9px;
+  line-height: 12px;
+  font-weight: 900;
+}
+
+.live-outlook-copy button {
+  width: 100%;
+  height: 40px;
+  margin-top: 12px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 900;
+}
+
 .library-lane {
   margin-top: 16px;
 }

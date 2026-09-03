@@ -693,10 +693,45 @@ async function serveStatic(req, res) {
     const fileStat = await stat(resolved);
     if (!fileStat.isFile()) throw new Error("Not a file");
     const type = mimeTypes[path.extname(resolved).toLowerCase()] || "application/octet-stream";
+    if (type === "video/mp4" && req.headers.range) {
+      const range = String(req.headers.range || "");
+      const match = range.match(/^bytes=(\d*)-(\d*)$/);
+      if (!match) {
+        res.writeHead(416, corsHeaders({ "Content-Range": `bytes */${fileStat.size}` }));
+        res.end();
+        return;
+      }
+      const start = match[1] ? Number(match[1]) : 0;
+      const end = match[2] ? Math.min(Number(match[2]), fileStat.size - 1) : fileStat.size - 1;
+      if (Number.isNaN(start) || Number.isNaN(end) || start > end || start >= fileStat.size) {
+        res.writeHead(416, corsHeaders({ "Content-Range": `bytes */${fileStat.size}` }));
+        res.end();
+        return;
+      }
+      res.writeHead(206, corsHeaders({
+        "Content-Type": type,
+        "Content-Length": String(end - start + 1),
+        "Content-Range": `bytes ${start}-${end}/${fileStat.size}`,
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "public, max-age=60",
+      }));
+      if (req.method === "HEAD") {
+        res.end();
+        return;
+      }
+      createReadStream(resolved, { start, end }).pipe(res);
+      return;
+    }
     res.writeHead(200, corsHeaders({
       "Content-Type": type,
+      "Content-Length": String(fileStat.size),
+      "Accept-Ranges": type === "video/mp4" ? "bytes" : "none",
       "Cache-Control": type.startsWith("text/html") ? "no-store" : "public, max-age=60",
     }));
+    if (req.method === "HEAD") {
+      res.end();
+      return;
+    }
     createReadStream(resolved).pipe(res);
   } catch {
     res.writeHead(404, corsHeaders({ "Content-Type": "text/plain; charset=utf-8" }));

@@ -32,6 +32,8 @@ const assets = {
   lookbookSheet: HC("six-male-looks-sheet.png"),
 };
 
+const currentLiveApiBase = "https://ffdc1021246b22.lhr.life";
+
 const categoryAssets = [
   ["Men Topwear", "cat-men-topwear.png", "large", "cat-men"],
   ["Winter Wear", "cat-winter-1.png", "small", "cat-winter-1"],
@@ -258,6 +260,69 @@ const cameraDirectorMoves = [
     motion: "soft light wipe into the selected environment, then a confident still pose",
     framing: "adult shopper full-body avatar, stable hands, complete outfit coverage maintained",
     beat: "curiosity to surprise to reward in one short loop",
+  },
+];
+
+const liveMomentCategories = [
+  {
+    id: "moment-live",
+    category: "Live Moment",
+    label: "Live Moment",
+    prompt: "Style the outfit around the uploaded real-world scene, lighting and mood.",
+  },
+  {
+    id: "moment-office",
+    category: "Office",
+    label: "Office",
+    prompt: "Sharper, composed looks for work meetings and review days.",
+  },
+  {
+    id: "moment-date",
+    category: "Date",
+    label: "Date",
+    prompt: "Evening-friendly polish with warmer, more confident styling.",
+  },
+  {
+    id: "moment-casual",
+    category: "Casual",
+    label: "Casual",
+    prompt: "Easy everyday outfits for brunch, errands and relaxed plans.",
+  },
+  {
+    id: "moment-sport",
+    category: "Sport Wear",
+    label: "Sport Wear",
+    prompt: "Active-to-cafe pieces with movement, comfort and clean coverage.",
+  },
+  {
+    id: "moment-ethnic",
+    category: "Ethnic",
+    label: "Ethnic",
+    prompt: "Family, festive and cultural occasion edits from catalogue pieces.",
+  },
+  {
+    id: "moment-formal",
+    category: "Formal",
+    label: "Formal",
+    prompt: "Refined silhouettes for interviews, premium dinners and events.",
+  },
+  {
+    id: "moment-travel",
+    category: "Travel",
+    label: "Travel",
+    prompt: "Comfortable capsule looks for airport, commute and day trips.",
+  },
+  {
+    id: "moment-resort",
+    category: "Resort",
+    label: "Resort",
+    prompt: "Holiday and vacation edits with lighter, destination-ready styling.",
+  },
+  {
+    id: "moment-celebration",
+    category: "Celebration",
+    label: "Celebration",
+    prompt: "Rewarding event looks for parties, weddings and store-screen reveals.",
   },
 ];
 
@@ -1212,11 +1277,13 @@ const state = {
   selectedEnvironmentId: "store-spotlight",
   selectedCameraId: "reward-reveal",
   selectedLookbookStyleId: "match-day-to-store",
+  selectedLiveMoment: "Live Moment",
   selectedGender: "male",
   detectedGender: "",
   autoSuggestStatus: "idle",
   autoSuggestNote: "",
   dailySurpriseId: "",
+  liveMomentLocked: false,
   latestAnalysisToken: 0,
   uploadSourcePath: "",
   uploadedPhotoTitle: "",
@@ -1246,6 +1313,8 @@ const state = {
   galleryOpen: false,
   galleryTab: "Recents",
   uploadConfirmed: false,
+  activeApiBase: "",
+  apiBaseNotice: "",
   toast: "",
 };
 
@@ -1282,6 +1351,51 @@ function defaultUploadStyleForGender(gender = state.selectedGender) {
     || styles.find((style) => style.category === "Office" && !style.dailySurprise)
     || styles.find((style) => !style.dailySurprise)
     || defaultStyleForGender(target);
+}
+
+function liveMomentByCategory(category = state.selectedLiveMoment) {
+  return liveMomentCategories.find((moment) => moment.category === category) || liveMomentCategories[0];
+}
+
+function relatedMomentCategories(category = state.selectedLiveMoment) {
+  const related = {
+    "Live Moment": ["Casual", "Travel", "Sport Wear", "Office"],
+    Office: ["Formal", "Casual", "Live Moment"],
+    Date: ["Formal", "Celebration", "Casual"],
+    Casual: ["Live Moment", "Travel", "Sport Wear"],
+    "Sport Wear": ["Casual", "Travel", "Live Moment"],
+    Ethnic: ["Celebration", "Formal", "Date"],
+    Formal: ["Office", "Date", "Celebration"],
+    Travel: ["Casual", "Resort", "Sport Wear"],
+    Resort: ["Travel", "Casual", "Date"],
+    Celebration: ["Ethnic", "Date", "Formal"],
+  };
+  return [category, ...(related[category] || ["Casual", "Office", "Live Moment"])];
+}
+
+function styleForLiveMoment(gender = state.selectedGender, category = state.selectedLiveMoment, meta = {}) {
+  const target = normalizedGender(gender);
+  const styles = genderStyles(target);
+  const exact = styles.find((style) => style.category === category && !style.dailySurprise)
+    || styles.find((style) => style.category === category);
+  return exact || uploadStyleForGender(target, meta);
+}
+
+function liveMomentOutlooks(category = state.selectedLiveMoment, gender = state.selectedGender, limit = 6) {
+  const target = normalizedGender(gender);
+  const categories = relatedMomentCategories(category);
+  const styles = genderStyles(target);
+  const ranked = [
+    ...styles.filter((style) => style.category === category),
+    ...categories.flatMap((item) => styles.filter((style) => style.category === item && style.category !== category)),
+    ...styles,
+  ];
+  const unique = [];
+  for (const style of ranked) {
+    if (!unique.some((item) => item.id === style.id)) unique.push(style);
+    if (unique.length >= limit) break;
+  }
+  return unique;
 }
 
 function defaultProductForGender(gender = state.selectedGender) {
@@ -1325,6 +1439,7 @@ function selectedLookbookStyle() {
 function syncLookbookStyleInternals(style = selectedLookbookStyle()) {
   state.selectedEnvironmentId = style.environmentId;
   state.selectedCameraId = style.cameraId;
+  if (style.category) state.selectedLiveMoment = style.category;
 }
 
 function currentRenderedImage(product = renderedProduct()) {
@@ -1364,6 +1479,7 @@ function selectLookbookStyle(id) {
   state.selectedGender = normalizedGender(style.gender);
   state.selectedLookbookStyleId = style.id;
   syncLookbookStyleInternals(style);
+  state.liveMomentLocked = true;
   state.activeCollection = style.tags[0] || "Men Topwear";
   if (!productMatchesGender(state.selectedId, state.selectedGender)) {
     const nextProduct = suggestedProductsForStyle(style)[0] || defaultProductForGender(state.selectedGender);
@@ -1375,9 +1491,44 @@ function selectLookbookStyle(id) {
   flash(`${style.label} unlocked`);
 }
 
+function selectLiveMoment(category) {
+  const moment = liveMomentByCategory(category);
+  state.selectedLiveMoment = moment.category;
+  const style = styleForLiveMoment(state.selectedGender, moment.category, {
+    title: `${state.uploadedPhotoTitle} ${state.autoSuggestNote}`,
+    meta: `${state.uploadedPhotoMeta} ${moment.prompt}`,
+  });
+  state.selectedLookbookStyleId = style.id;
+  syncLookbookStyleInternals(style);
+  state.liveMomentLocked = true;
+  if (!productMatchesGender(state.selectedId, state.selectedGender)) {
+    state.selectedId = previewProductId;
+  }
+  if (state.route === "tryon" && state.renderStatus !== "rendered") {
+    state.selectedId = previewProductId;
+    state.renderStatus = "ready";
+  } else if (state.route === "pdp") {
+    const product = suggestedProductsForStyle(style)[0] || defaultProductForGender(state.selectedGender);
+    state.selectedId = product.id;
+    state.renderStatus = "selected";
+  }
+  state.activeCollection = style.tags[0] || (state.selectedGender === "female" ? "Women Topwear" : "Men Topwear");
+  state.autoSuggestStatus = state.uploadConfirmed ? "ready" : state.autoSuggestStatus;
+  state.autoSuggestNote = state.uploadConfirmed
+    ? `${moment.label} selected. Choose one outlook below or open the top PDP match.`
+    : state.autoSuggestNote;
+  state.searchQuery = "";
+  state.dailySurpriseId = "";
+  clearTryOnOutput();
+  render();
+  flash(`${moment.label} outlooks ready`);
+}
+
 function setCatalogueLane(gender, options = {}) {
   const nextGender = normalizedGender(gender);
-  const nextStyle = defaultStyleForGender(nextGender);
+  const nextStyle = state.uploadConfirmed
+    ? styleForLiveMoment(nextGender, state.selectedLiveMoment)
+    : defaultStyleForGender(nextGender);
   state.selectedGender = nextGender;
   state.detectedGender = state.detectedGender || nextGender;
   state.selectedLookbookStyleId = nextStyle.id;
@@ -1410,7 +1561,7 @@ function autoSuggestLook(options = {}) {
     flash("Upload an image first");
     return;
   }
-  const style = uploadStyleForGender(state.selectedGender, {
+  const style = styleForLiveMoment(state.selectedGender, state.selectedLiveMoment, {
     title: `${state.uploadedPhotoTitle} ${state.autoSuggestNote}`,
     meta: state.uploadedPhotoMeta,
   });
@@ -1468,6 +1619,7 @@ function surpriseMeForTheDay(options = {}) {
   state.selectedLookbookStyleId = style.id;
   state.dailySurpriseId = style.id;
   syncLookbookStyleInternals(style);
+  state.liveMomentLocked = true;
   const productsForStyle = suggestedProductsForStyle(style);
   const product = productsForStyle[options.random ? Math.floor(Math.random() * productsForStyle.length) : 0] || defaultProductForGender(state.selectedGender);
   state.selectedId = product.id;
@@ -1522,47 +1674,94 @@ function escapeHTML(value) {
     .replace(/"/g, "&quot;");
 }
 
-function configuredApiBase() {
-  const params = new URLSearchParams(String(window.location.search || ""));
-  const queryBase = params.get("apiBase");
-  if (queryBase) {
-    try {
-      window.localStorage?.setItem("companionApiBase", queryBase);
-    } catch {
-      // Ignore private browsing storage failures.
-    }
-    return queryBase.replace(/\/+$/, "");
-  }
+function normalizeApiBase(value = "") {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
 
+function addUniqueApiBase(list, base) {
+  const normalized = normalizeApiBase(base);
+  if (normalized && !list.includes(normalized)) list.push(normalized);
+}
+
+function apiBaseCandidates(preferredBase = "") {
+  const params = new URLSearchParams(String(window.location.search || ""));
+  const queryBase = normalizeApiBase(params.get("apiBase"));
+  const candidates = [];
+  addUniqueApiBase(candidates, preferredBase);
+  addUniqueApiBase(candidates, state.activeApiBase);
+  addUniqueApiBase(candidates, queryBase);
   try {
-    const savedBase = window.localStorage?.getItem("companionApiBase");
-    if (savedBase) return savedBase.replace(/\/+$/, "");
+    addUniqueApiBase(candidates, window.localStorage?.getItem("companionApiBase"));
   } catch {
     // Ignore private browsing storage failures.
   }
 
   const hostname = String(window.location.hostname || "");
-  if (window.location.protocol === "file:" || hostname.endsWith("github.io")) {
-    return "http://127.0.0.1:4173";
-  }
-  return "";
+  const isStaticPage = window.location.protocol === "file:" || hostname.endsWith("github.io");
+  if (isStaticPage) addUniqueApiBase(candidates, currentLiveApiBase);
+  if (window.location.protocol !== "https:") addUniqueApiBase(candidates, "http://127.0.0.1:4173");
+  if (!isStaticPage) candidates.push("");
+  return candidates;
 }
 
-function apiUrl(path) {
-  const base = configuredApiBase();
+function rememberApiBase(base) {
+  const normalized = normalizeApiBase(base);
+  state.activeApiBase = normalized;
+  state.apiBaseNotice = normalized ? `Connected to ${normalized}` : "Connected to current app server";
+  try {
+    if (normalized) {
+      window.localStorage?.setItem("companionApiBase", normalized);
+    } else {
+      window.localStorage?.removeItem?.("companionApiBase");
+    }
+  } catch {
+    // Ignore private browsing storage failures.
+  }
+}
+
+function configuredApiBase() {
+  if (state.activeApiBase) return state.activeApiBase;
+  const params = new URLSearchParams(String(window.location.search || ""));
+  return apiBaseCandidates(normalizeApiBase(params.get("apiBase")))[0] || "";
+}
+
+function apiUrl(path, base = configuredApiBase()) {
   return base ? `${base}${path}` : path;
 }
 
-function apiAssetUrl(value) {
+function apiAssetUrl(value, base = configuredApiBase()) {
   const src = String(value || "");
   if (!src || /^(data:|blob:|https?:|gs:\/\/)/.test(src)) return src;
-  const base = configuredApiBase();
   return base && src.startsWith("/") ? `${base}${src}` : src;
 }
 
 function realBackendRequiredMessage(action) {
   const base = configuredApiBase();
-  return `${action} needs the live Vertex backend${base ? ` at ${base}` : ""}. Keep the Node server running with Google credentials, then try again.`;
+  return `${action} needs the live Vertex backend${base ? ` at ${base}` : ""}. If this public link was opened with an old apiBase, reload with the latest share link or keep the Node server/tunnel running with Google credentials, then try again.`;
+}
+
+function recoverableApiStatus(status) {
+  return [0, 404, 502, 503, 504].includes(Number(status || 0));
+}
+
+async function fetchApiJson(path, options = {}, config = {}) {
+  const candidates = apiBaseCandidates(config.preferredBase);
+  let lastError = null;
+  for (const base of candidates) {
+    try {
+      const response = await fetch(apiUrl(path, base), options);
+      const data = await response.json().catch(() => ({}));
+      const status = Number(response.status || 0);
+      if (response.ok || !recoverableApiStatus(status) || base === candidates[candidates.length - 1]) {
+        rememberApiBase(base);
+        return { response, data, base };
+      }
+      lastError = new Error(data.error || `Backend ${base || "same-origin"} returned ${status || "an unavailable response"}`);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("No live Vertex backend was reachable");
 }
 
 function filteredProducts() {
@@ -1636,6 +1835,7 @@ function resetTryOnFlow(options = {}) {
   state.autoSuggestStatus = "idle";
   state.autoSuggestNote = "";
   state.dailySurpriseId = "";
+  state.liveMomentLocked = Boolean(options.preserveStyle);
   syncLookbookStyleInternals(baseStyle);
   state.renderStatus = "ready";
   state.tryOnImageUrl = "";
@@ -1763,7 +1963,7 @@ async function analyzeUploadedImage(meta = {}) {
     const imagePayload = state.uploadedPhoto.startsWith("data:image/")
       ? { imageDataUrl: state.uploadedPhoto }
       : { imagePath: state.uploadSourcePath || state.uploadedPhoto };
-    const response = await fetch(apiUrl("/api/analyze-upload-image"), {
+    const { response, data } = await fetchApiJson("/api/analyze-upload-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1773,18 +1973,19 @@ async function analyzeUploadedImage(meta = {}) {
         requestedGenderLane: state.selectedGender,
       }),
     });
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Style analysis failed");
     if (state.latestAnalysisToken !== analysisToken) return;
     const nextGender = normalizedGender(data.recommendedGenderLane || data.genderLane || state.selectedGender);
     const preferredCategory = data.preferredCategory || inferCategoryFromText(`${data.occasion || ""} ${(data.tags || []).join(" ")}`);
     const nextStyle = genderStyles(nextGender).find((style) => style.category === preferredCategory) || uploadStyleForGender(nextGender, meta);
-    const shouldApplyAnalysis = state.selectedId === previewProductId && state.renderStatus !== "rendering" && state.renderStatus !== "rendered";
+    const shouldApplyAnalysis = !state.liveMomentLocked && state.selectedId === previewProductId && state.renderStatus !== "rendering" && state.renderStatus !== "rendered";
     if (shouldApplyAnalysis) {
       applyRecommendedLane(nextGender, { style: nextStyle, meta, selectProduct: false });
     }
     state.autoSuggestStatus = "ready";
-    state.autoSuggestNote = data.note || `${genderLabel(nextGender)} catalogue lane unlocked from the image read. Choose a PDP to style next.`;
+    state.autoSuggestNote = state.liveMomentLocked
+      ? `${state.selectedLiveMoment} moment kept. ${data.note || "The image read is complete, and the catalogue is ready."}`
+      : data.note || `${genderLabel(nextGender)} catalogue lane unlocked from the image read. Choose a live moment or PDP to build next.`;
     render();
   } catch (error) {
     if (state.latestAnalysisToken !== analysisToken) return;
@@ -1802,6 +2003,7 @@ function confirmUploadedImage(image, meta = {}) {
   state.uploadedPhotoMeta = meta.meta || "Device Gallery";
   state.guardrailStatus = meta.guardrailStatus || "ready";
   state.detectedGender = detectedLane;
+  state.liveMomentLocked = false;
   applyRecommendedLane(detectedLane, { meta, selectProduct: false });
   state.tryOnImageUrl = "";
   state.tryOnImageUri = "";
@@ -1939,7 +2141,7 @@ async function renderOnModel() {
     const personPayload = state.uploadedPhoto && state.uploadedPhoto.startsWith("data:image/")
       ? { personImageDataUrl: state.uploadedPhoto }
       : { personImagePath: state.uploadSourcePath || state.uploadedPhoto };
-    const response = await fetch(apiUrl("/api/generate-tryon-image"), {
+    const { response, data, base } = await fetchApiJson("/api/generate-tryon-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1963,12 +2165,11 @@ async function renderOnModel() {
         },
       }),
     });
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(data.error || "Lookbook image generation failed");
     }
     const generatedImage = data.imageDataUrl || data.imageUrl || "";
-    const displayImage = apiAssetUrl(generatedImage);
+    const displayImage = apiAssetUrl(generatedImage, base);
     if (data.mode !== "vertex-try-on" || data.status !== "done" || !displayImage) {
       throw new Error("Vertex VTO did not return a displayable generated image");
     }
@@ -2213,11 +2414,11 @@ function waitForLookbookVideo(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function applyVertexVideoResult(data) {
+function applyVertexVideoResult(data, base = configuredApiBase()) {
   if (data.mode !== "vertex") {
     throw new Error("Veo did not return a real Vertex response");
   }
-  const displayUrl = apiAssetUrl(data.videoUrl || (String(data.videoUri || "").startsWith("/") ? data.videoUri : ""));
+  const displayUrl = apiAssetUrl(data.videoUrl || (String(data.videoUri || "").startsWith("/") ? data.videoUri : ""), base);
   if (data.status === "done" && !displayUrl) {
     throw new Error("Veo returned no playable video URL for this prototype");
   }
@@ -2235,14 +2436,13 @@ async function pollLookbookVideo(operationName, requestToken) {
     await waitForLookbookVideo(15000);
     if (state.videoRequestToken !== requestToken || state.videoStatus !== "running") return;
     try {
-      const response = await fetch(apiUrl("/api/vertex-video-status"), {
+      const { response, data, base } = await fetchApiJson("/api/vertex-video-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ operationName }),
-      });
-      const data = await response.json().catch(() => ({}));
+      }, { preferredBase: state.activeApiBase });
       if (!response.ok) throw new Error(data.error || "Video status check failed");
-      applyVertexVideoResult(data);
+      applyVertexVideoResult(data, base);
       render();
       if (state.videoStatus === "ready") {
         flash("Veo video ready");
@@ -2319,17 +2519,16 @@ async function generateLookbookVideo() {
   render();
 
   try {
-    const response = await fetch(apiUrl("/api/generate-lookbook-video"), {
+    const { response, data, base } = await fetchApiJson("/api/generate-lookbook-video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(data.error || "Video generation failed");
     }
     if (state.videoRequestToken !== requestToken) return;
-    applyVertexVideoResult(data);
+    applyVertexVideoResult(data, base);
     render();
     if (state.videoStatus === "ready") {
       flash("Veo video ready");
@@ -2754,6 +2953,7 @@ function createLookbookFromStyle(id) {
   state.detectedGender = state.detectedGender || state.selectedGender;
   state.selectedLookbookStyleId = style.id;
   syncLookbookStyleInternals(style);
+  state.liveMomentLocked = true;
   const product = primaryProductForStyle(style);
   state.selectedId = product.id;
   state.renderedId = previewProductId;
@@ -2839,9 +3039,9 @@ function lookbookLibrarySection() {
 function analystNudge(context, product = selectedProduct()) {
   const style = selectedLookbookStyle();
   const copy = {
-    discover: `I am reading ${genderLabel().toLowerCase()} catalogue PDPs against your ${style.label} brief. Pick a product and I will turn it into a saved Lookbook result.`,
-    upload: `Start with a real image. I will check the upload guardrails, read the mood, and unlock curated styles before showing suggestions.`,
-    lookbook: `Saved looks become your digital closet. Reopen any one, generate a clip, share it, cast it, or add it to bag.`,
+    discover: `I am matching ${genderLabel().toLowerCase()} catalogue PDPs to your uploaded image, selected live moment and ${style.label} brief. Pick a product and I will turn it into a saved Lookbook result.`,
+    upload: `Start with a real image. I will check upload guardrails, read the live mood, then curate Office, Date, Casual, Sport Wear, Ethnic and celebration outlooks before showing products.`,
+    lookbook: `Saved looks become your digital closet. Reopen any look, generate a reference-style clip, share it, cast it, or add it to bag.`,
   }[context] || `I am matching ${product.brand} with your ${style.label} edit so the result feels personal, useful and store-ready.`;
   return `
     <section class="analyst-nudge">
@@ -2957,6 +3157,7 @@ function autoSuggestPanel() {
   const style = selectedLookbookStyle();
   const dailyCount = dailySurpriseStylesForGender(state.selectedGender).length;
   const isReading = state.autoSuggestStatus === "reading";
+  const moment = liveMomentByCategory();
   const status = state.autoSuggestStatus === "reading"
     ? "Reading image"
     : state.autoSuggestStatus === "error"
@@ -2967,7 +3168,7 @@ function autoSuggestPanel() {
       <div class="auto-suggest-head">
         <div>
           <span>Auto Suggest</span>
-          <h2>${genderLabel(state.selectedGender)} Lookbook Lane</h2>
+          <h2>${genderLabel(state.selectedGender)} · ${moment.label}</h2>
         </div>
         <strong class="${isReading ? "busy-label" : ""}">${isReading ? `<i class="mini-spinner" aria-hidden="true"></i>` : ""}${status}</strong>
       </div>
@@ -2982,6 +3183,71 @@ function autoSuggestPanel() {
       <div class="auto-suggest-actions">
         <button class="wide-dark" data-action="auto-suggest">Open Top PDP Match</button>
         <button class="wide-outline" data-route="discover">Browse Suggestions</button>
+      </div>
+    </section>
+  `;
+}
+
+function liveMomentSelector() {
+  const activeMoment = liveMomentByCategory();
+  return `
+    <div class="live-moment-selector">
+      <div class="live-moment-selector-head">
+        <span>Choose Live Moment</span>
+        <strong>${activeMoment.label} Lookbook Direction</strong>
+        <p>${activeMoment.prompt} This choice controls the outlook cards, PDP ranking, avatar environment and camera brief.</p>
+      </div>
+      <div class="moment-chip-rail rail">
+        ${liveMomentCategories.map((moment) => `
+          <button class="${moment.category === activeMoment.category ? "active" : ""}" data-moment="${escapeHTML(moment.category)}">
+            <strong>${moment.label}</strong>
+            <span>${moment.prompt}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function liveMomentOutlookCard(style, index) {
+  const product = primaryProductForStyle(style);
+  const environment = environmentAvatars.find((item) => item.id === style.environmentId) || selectedEnvironment();
+  const active = style.id === state.selectedLookbookStyleId;
+  return `
+    <article class="live-outlook-card ${active ? "active" : ""}" style="--style-accent:${style.accent}">
+      <button class="live-outlook-image" data-create-style="${style.id}" aria-label="Use ${style.label} outlook">
+        <img src="${product.tryonImage || product.image}" alt="${style.label} ${product.brand} outfit outlook" />
+        <span>Outlook ${String(index + 1).padStart(2, "0")}</span>
+      </button>
+      <div class="live-outlook-copy">
+        <em>${style.category} · ${style.occasion}</em>
+        <strong>${style.label}</strong>
+        <p>${style.reason}</p>
+        <div class="outlook-tags">
+          <span>${product.brand}</span>
+          <span>${product.price}</span>
+          <span>${environment.label}</span>
+          <span>${style.confidence}</span>
+        </div>
+        <button data-create-style="${style.id}">Use This Outlook</button>
+      </div>
+    </article>
+  `;
+}
+
+function liveMomentOutlookSection() {
+  const moment = liveMomentByCategory();
+  const outlooks = liveMomentOutlooks(moment.category, state.selectedGender, 6);
+  return `
+    <section class="live-moment-board">
+      ${liveMomentSelector()}
+      <div class="live-outlook-heading">
+        <span>Live Moment Outlooks</span>
+        <strong>${moment.label} · ${outlooks.length} curated outlooks</strong>
+        <p>Tap an outlook to open the matching PDP. The product, environment, camera direction and Senior Stylist reason all travel into the final Lookbook render.</p>
+      </div>
+      <div class="live-outlook-rail rail">
+        ${outlooks.map((style, index) => liveMomentOutlookCard(style, index)).join("")}
       </div>
     </section>
   `;
@@ -3148,17 +3414,19 @@ function discoverScreen() {
     ? ["All Products", "Women Topwear", "Ethnic", "Celebration", "Office", "Casual", "Travel"]
     : ["All Products", "Men Topwear", "Bottomwear", "Winter Collection", "Smart Casual", "Sport Wear", "Office"];
   const style = selectedLookbookStyle();
+  const moment = liveMomentByCategory();
   const list = state.uploadConfirmed ? suggestedProductsForStyle(style) : filteredProducts();
   const styles = genderStyles();
   return `
     <main class="page proto-screen" data-screen="discover">
       <div class="proto-header">
-        <h1>${state.uploadConfirmed ? "Suggested Catalogue Products" : "Discover"}</h1>
+        <h1>${state.uploadConfirmed ? `Suggested Products For ${moment.label}` : "Discover"}</h1>
         <p>${state.uploadConfirmed ? `${style.label}: ${style.reason}` : `${escapeHTML(state.activeCollection)} from the in-store catalogue. Open a PDP, then create a Lookbook from the uploaded image.`}</p>
       </div>
       ${genderSwitch()}
       ${state.activeOffer ? `<div class="state-banner">${state.activeOffer}</div>` : ""}
       ${analystNudge("discover")}
+      ${state.uploadConfirmed ? liveMomentSelector() : ""}
       ${state.uploadConfirmed ? `
         <div class="lookbook-style-rail discover-style-rail rail">
           ${styles.map((item) => `
@@ -3231,12 +3499,13 @@ function tryOnScreen() {
       </div>
       ${state.uploadConfirmed ? `
         <section class="upload-read-card">
-          <span>${state.autoSuggestStatus === "reading" ? "Style Read Running" : "Style Read Complete"}</span>
+          <span>${state.autoSuggestStatus === "reading" ? "Style Read Running" : "Style Read Complete · Lookbook Unlocked"}</span>
           <strong>${state.uploadedPhotoTitle || "Uploaded Image"}</strong>
-          <p>${state.guardrailStatus === "partial" ? "Lifestyle image accepted. A clean full-body front pose will improve AI styling accuracy." : "Image accepted. I am matching your avatar to curated store catalogue edits."}</p>
+          <p>${state.guardrailStatus === "partial" ? "Lifestyle image accepted. A clean full-body front pose will improve AI styling accuracy." : `Image accepted. I am curating ${state.selectedLiveMoment} outlooks from the store catalogue for this avatar.`}</p>
           ${state.autoSuggestStatus === "reading" ? loadingOrbit("AI Senior Stylist is reading", "Building your suggested product lane from the uploaded image.", "Catalogue suggestions unlock after this read") : ""}
         </section>
         ${autoSuggestPanel()}
+        ${liveMomentOutlookSection()}
         ${stylistPanel(guidedProduct, true)}
       ` : `${analystNudge("upload")}${guardrailPanel()}`}
       ${state.uploadConfirmed ? lookbookStudio(guidedProduct, "compact") : ""}
@@ -3681,6 +3950,9 @@ function syncQaState() {
     selectedId: state.selectedId,
     renderedId: state.renderedId,
     renderStatus: state.renderStatus,
+    selectedLiveMoment: state.selectedLiveMoment,
+    liveMomentLocked: state.liveMomentLocked,
+    activeApiBase: state.activeApiBase,
     tryOnMode: state.tryOnMode,
     tryOnImagePath: state.tryOnImagePath,
     tryOnImageUrl: state.tryOnImageUrl,
@@ -3884,6 +4156,13 @@ function bindEvents() {
     el.addEventListener("click", (event) => {
       event.stopPropagation();
       selectLookbookStyle(el.dataset.style);
+    });
+  });
+
+  document.querySelectorAll("[data-moment]").forEach((el) => {
+    el.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectLiveMoment(el.dataset.moment);
     });
   });
 
