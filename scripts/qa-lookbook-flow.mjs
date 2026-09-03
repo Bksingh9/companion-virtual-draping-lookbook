@@ -9,7 +9,6 @@ globalThis.__qa = {
   autoSuggestLook,
   castCurrentLook,
   closeGallery,
-  copyPromptToClipboard,
   createLookbookFromStyle,
   curatedStyleCounts,
   curatedLookbookStyles,
@@ -35,8 +34,6 @@ globalThis.__qa = {
 
 let currentHtml = "";
 let shareCalls = 0;
-let clipboardText = "";
-
 const app = {
   className: "",
   set innerHTML(value) {
@@ -110,9 +107,7 @@ const sandbox = {
   },
   navigator: {
     clipboard: {
-      writeText: async (value) => {
-        clipboardText = String(value);
-      },
+      writeText: async () => {},
     },
     share: async () => {
       shareCalls += 1;
@@ -220,10 +215,9 @@ assert(qa.state.tryOnMode === "vertex-try-on", "Create Lookbook must use Vertex 
 assert(qa.state.lookbookItems.length === 1, "Create Lookbook must save a Lookbook item");
 assert(currentHtml.includes("saved to Lookbook"), "Result must say saved to Lookbook");
 assert(currentHtml.includes("Generate Lookbook Video"), "Result must include video action");
+assert(!currentHtml.includes("Copy Prompt"), "Copy Prompt must not be visible in shopper flow");
 noOldNames();
 
-qa.copyPromptToClipboard();
-assert(clipboardText.includes("TRENDS AI Senior Stylist"), "Copy Prompt must write reverse prompt");
 qa.shareCurrentLook();
 assert(shareCalls === 1, "Share action must invoke share sheet");
 	const videoPromise = qa.generateLookbookVideo();

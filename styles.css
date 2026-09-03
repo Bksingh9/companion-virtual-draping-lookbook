@@ -1458,8 +1458,7 @@ button {
 .lookbook-studio-heading span,
 .style-story span,
 .guardrail-heading span,
-.upload-read-card span,
-.reverse-prompt-card span {
+.upload-read-card span {
   color: var(--muted);
   font-size: 10px;
   line-height: 14px;
@@ -1496,7 +1495,6 @@ button {
 .style-story p,
 .guardrail-panel p,
 .upload-read-card p,
-.reverse-prompt-card p,
 .analyst-nudge p {
   margin: 8px 0 0;
   color: var(--body);
@@ -2374,8 +2372,7 @@ button {
   margin-top: 12px;
 }
 
-.avatar-heading button,
-.reverse-prompt-card button {
+.avatar-heading button {
   height: 34px;
   padding: 8px 12px;
   border: 1px solid var(--primary);
@@ -2527,16 +2524,6 @@ button {
   font-weight: 600;
 }
 
-.reverse-prompt-card {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-light);
-}
-
-.reverse-prompt-card button {
-  margin-top: 10px;
-}
-
 .lookbook-entry-card {
   display: flex;
   flex-direction: column;
@@ -2652,8 +2639,7 @@ button {
   margin-top: 12px;
 }
 
-.lookbook-studio-heading button,
-.reverse-prompt-card button {
+.lookbook-studio-heading button {
   height: 34px;
   padding: 8px 12px;
   border: 1px solid var(--primary);

@@ -2378,15 +2378,6 @@ function surpriseLook() {
   surpriseMeForTheDay({ random: true });
 }
 
-function copyPromptToClipboard() {
-  const product = state.renderStatus === "rendered" ? renderedProduct() : selectedProduct();
-  const prompt = reverseLookbookPrompt(product, selectedEnvironment(), selectedCameraMove(), selectedLookbookStyle());
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(prompt).catch(() => {});
-  }
-  flash("Reverse prompt copied");
-}
-
 function reverseLookbookPrompt(product, environment = selectedEnvironment(), cameraMove = selectedCameraMove(), style = selectedLookbookStyle()) {
   const avatarAnchor = state.uploadedPhoto && state.uploadedPhoto.startsWith("data:image/")
     ? "Use the uploaded customer image as the avatar identity anchor and adapt the selected PDP outfit onto that person."
@@ -3111,10 +3102,6 @@ function stylistPanel(product, compact = false) {
   `;
 }
 
-function reversePromptPreview(product, environment = selectedEnvironment(), cameraMove = selectedCameraMove(), style = selectedLookbookStyle()) {
-  return `${style.label}: use the uploaded identity with ${product.brand} ${product.name}, style it for ${style.occasion}, and preserve face, body proportions, trouser coverage, colour and silhouette.`;
-}
-
 function guardrailPanel(compact = false) {
   const statusCopy = state.uploadConfirmed
     ? state.guardrailStatus === "partial"
@@ -3284,11 +3271,6 @@ function lookbookStudio(product, mode = "") {
         `).join("")}
       </div>
       ${guardrailPanel(true)}
-      <div class="reverse-prompt-card">
-        <span>Lookbook Prompt</span>
-        <p>${reversePromptPreview(product, selectedEnvironment(), selectedCameraMove(), style)}</p>
-        <button data-action="copy-prompt">Copy Prompt</button>
-      </div>
     </section>
   `;
 }
@@ -3375,7 +3357,7 @@ function generationErrorPanel() {
       <em>${state.tryOnError}</em>
       <div class="generation-error-actions">
         <button class="wide-dark" data-action="render">Try Again</button>
-        <button class="wide-outline" data-action="copy-prompt">Copy Prompt</button>
+        <button class="wide-outline" data-route="pdp">Back To PDP</button>
       </div>
     </section>
   `;
@@ -4022,10 +4004,6 @@ function bindEvents() {
         surpriseMeForTheDay();
         return;
       }
-      if (action === "copy-prompt") {
-        copyPromptToClipboard();
-        return;
-      }
       if (action === "toggle-pause") {
         state.carouselPaused = !state.carouselPaused;
         flash(state.carouselPaused ? "Carousel paused" : "Carousel playing");
@@ -4262,10 +4240,6 @@ function bindEvents() {
       }
       if (action === "surprise-look") {
         surpriseLook();
-        return;
-      }
-      if (action === "copy-prompt") {
-        copyPromptToClipboard();
         return;
       }
       if (action === "open-latest-look") {
