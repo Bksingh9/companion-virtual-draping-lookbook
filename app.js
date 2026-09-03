@@ -1272,6 +1272,15 @@ function defaultStyleForGender(gender = state.selectedGender) {
   return genderStyles(target)[0] || curatedLookbookStyles[0];
 }
 
+function defaultUploadStyleForGender(gender = state.selectedGender) {
+  const target = normalizedGender(gender);
+  const styles = genderStyles(target);
+  return styles.find((style) => style.category === "Casual" && !style.dailySurprise)
+    || styles.find((style) => style.category === "Office" && !style.dailySurprise)
+    || styles.find((style) => !style.dailySurprise)
+    || defaultStyleForGender(target);
+}
+
 function defaultProductForGender(gender = state.selectedGender) {
   const target = normalizedGender(gender);
   if (target === "male") return products.find((product) => product.id === previewProductId) || products[0];
@@ -1503,6 +1512,10 @@ function escapeHTML(value) {
     .replace(/"/g, "&quot;");
 }
 
+function isStaticPrototypeHost() {
+  return window.location.protocol === "file:" || window.location.hostname.endsWith("github.io");
+}
+
 function filteredProducts() {
   const query = state.searchQuery.trim().toLowerCase();
   const collection = state.activeCollection;
@@ -1656,8 +1669,7 @@ function uploadStyleForGender(gender, meta = {}) {
   const preferredCategory = inferCategoryFromText(titleSignal);
   const styles = genderStyles(target);
   return styles.find((style) => style.category === preferredCategory)
-    || styles.find((style) => style.dailySurprise)
-    || defaultStyleForGender(target);
+    || defaultUploadStyleForGender(target);
 }
 
 function inferCategoryFromText(value = "") {
@@ -1673,14 +1685,19 @@ function inferCategoryFromText(value = "") {
 function applyRecommendedLane(gender, options = {}) {
   const nextGender = normalizedGender(gender);
   const nextStyle = options.style || uploadStyleForGender(nextGender, options.meta || {});
+  const shouldSelectProduct = options.selectProduct !== false;
   state.selectedGender = nextGender;
   state.detectedGender = nextGender;
   state.selectedLookbookStyleId = nextStyle.id;
   syncLookbookStyleInternals(nextStyle);
-  const nextProduct = suggestedProductsForStyle(nextStyle)[0] || defaultProductForGender(nextGender);
-  state.selectedId = nextProduct.id;
+  if (shouldSelectProduct) {
+    const nextProduct = suggestedProductsForStyle(nextStyle)[0] || defaultProductForGender(nextGender);
+    state.selectedId = nextProduct.id;
+  } else {
+    state.selectedId = previewProductId;
+  }
   state.renderedId = previewProductId;
-  state.renderStatus = state.uploadConfirmed ? "selected" : "ready";
+  state.renderStatus = state.uploadConfirmed && shouldSelectProduct ? "selected" : "ready";
   state.activeCollection = nextStyle.tags[0] || (nextGender === "female" ? "Women Topwear" : "Men Topwear");
 }
 
@@ -1693,8 +1710,8 @@ async function analyzeUploadedImage(meta = {}) {
   render();
 
   try {
-    if (window.location.protocol === "file:") {
-      throw new Error("Local server analysis unavailable in file preview");
+    if (isStaticPrototypeHost()) {
+      throw new Error("AI analysis unavailable in static prototype");
     }
     const imagePayload = state.uploadedPhoto.startsWith("data:image/")
       ? { imageDataUrl: state.uploadedPhoto }
@@ -1715,14 +1732,17 @@ async function analyzeUploadedImage(meta = {}) {
     const nextGender = normalizedGender(data.recommendedGenderLane || data.genderLane || state.selectedGender);
     const preferredCategory = data.preferredCategory || inferCategoryFromText(`${data.occasion || ""} ${(data.tags || []).join(" ")}`);
     const nextStyle = genderStyles(nextGender).find((style) => style.category === preferredCategory) || uploadStyleForGender(nextGender, meta);
-    applyRecommendedLane(nextGender, { style: nextStyle, meta });
+    const shouldApplyAnalysis = state.selectedId === previewProductId && state.renderStatus !== "rendering" && state.renderStatus !== "rendered";
+    if (shouldApplyAnalysis) {
+      applyRecommendedLane(nextGender, { style: nextStyle, meta, selectProduct: false });
+    }
     state.autoSuggestStatus = "ready";
-    state.autoSuggestNote = data.note || `${genderLabel(nextGender)} catalogue lane selected from the image read. Switch anytime.`;
+    state.autoSuggestNote = data.note || `${genderLabel(nextGender)} catalogue lane unlocked from the image read. Choose a PDP to drape next.`;
     render();
   } catch {
     if (state.latestAnalysisToken !== analysisToken) return;
     state.autoSuggestStatus = "ready";
-    state.autoSuggestNote = `${genderLabel(state.selectedGender)} catalogue lane selected from gallery and upload signals. Switch anytime.`;
+    state.autoSuggestNote = `${genderLabel(state.selectedGender)} catalogue lane unlocked from gallery and upload signals. Choose a suggested PDP to drape next.`;
     render();
   }
 }
@@ -1735,7 +1755,7 @@ function confirmUploadedImage(image, meta = {}) {
   state.uploadedPhotoMeta = meta.meta || "Device Gallery";
   state.guardrailStatus = meta.guardrailStatus || "ready";
   state.detectedGender = detectedLane;
-  applyRecommendedLane(detectedLane, { meta });
+  applyRecommendedLane(detectedLane, { meta, selectProduct: false });
   state.tryOnImageUrl = "";
   state.tryOnImageUri = "";
   state.tryOnMode = "";
@@ -1743,12 +1763,12 @@ function confirmUploadedImage(image, meta = {}) {
   state.tryOnError = "";
   clearVideoState();
   state.uploadConfirmed = true;
-  state.renderStatus = "selected";
+  state.renderStatus = "ready";
   state.galleryOpen = false;
   state.activeCollection = selectedLookbookStyle().tags[0] || "Men Topwear";
   state.searchQuery = "";
   state.autoSuggestStatus = "ready";
-  state.autoSuggestNote = `${genderLabel(detectedLane)} catalogue lane selected. I will refine the read if AI analysis is available.`;
+  state.autoSuggestNote = `${genderLabel(detectedLane)} catalogue lane unlocked. Choose a suggested PDP below, or open the top PDP match.`;
   render();
   flash("Senior Stylist suggestions ready");
   resetScroll();
@@ -1811,6 +1831,14 @@ function startProductDraping() {
     resetScroll();
     return;
   }
+  if (state.selectedId === previewProductId) {
+    state.route = "discover";
+    state.renderStatus = "ready";
+    render();
+    resetScroll();
+    flash("Select a suggested PDP first");
+    return;
+  }
   if (state.route !== "tryon") state.previousRoute = state.route;
   state.route = "tryon";
   if (state.renderedId === state.selectedId) {
@@ -1819,7 +1847,7 @@ function startProductDraping() {
     resetScroll();
     return;
   }
-  renderOnModel();
+  return renderOnModel();
 }
 
 async function renderOnModel() {
@@ -1828,13 +1856,12 @@ async function renderOnModel() {
     return;
   }
   const product = selectedProduct();
-  if (product.id === previewProductId) {
-    const suggested = suggestedProductsForStyle()[0];
-    if (suggested) {
-      state.selectedId = suggested.id;
-      selectProduct(suggested.id);
-      flash("Pick a suggested product, then try it on");
-    }
+  if (state.selectedId === previewProductId || product.id === previewProductId) {
+    state.route = "discover";
+    state.renderStatus = "ready";
+    render();
+    resetScroll();
+    flash("Select a suggested PDP first");
     return;
   }
   const style = selectedLookbookStyle();
@@ -1852,8 +1879,8 @@ async function renderOnModel() {
   render();
   resetScroll();
   try {
-    if (window.location.protocol === "file:") {
-      throw new Error("Run the local server to use Vertex virtual draping");
+    if (isStaticPrototypeHost()) {
+      throw new Error("Static prototype uses the mapped catalogue drape");
     }
     const personPayload = state.uploadedPhoto && state.uploadedPhoto.startsWith("data:image/")
       ? { personImageDataUrl: state.uploadedPhoto }
@@ -2168,6 +2195,9 @@ async function generateLookbookVideo() {
   render();
 
   try {
+    if (isStaticPrototypeHost()) {
+      throw new Error("Static prototype shows the lookbook video preview flow");
+    }
     const response = await fetch("/api/generate-lookbook-video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2188,8 +2218,8 @@ async function generateLookbookVideo() {
   } catch (error) {
     state.videoStatus = "demo";
     state.videoMode = "local";
-    state.videoMessage = window.location.protocol === "file:"
-      ? "Run the local server to connect Vertex video generation"
+    state.videoMessage = isStaticPrototypeHost()
+      ? "Static prototype shows the lookbook video preview flow. Run the local server to connect Vertex video generation."
       : error.message;
     render();
     flash("Video preview flow shown");
@@ -2681,7 +2711,7 @@ function autoSuggestPanel() {
         </div>
         <strong>${status}</strong>
       </div>
-      <p>${state.autoSuggestNote || `${style.label} is selected. I can move you straight into the strongest PDP look.`}</p>
+      <p>${state.autoSuggestNote || `${style.label} is selected. Choose a suggested catalogue PDP, or let me open the strongest PDP match for you.`}</p>
       ${genderSwitch()}
       <div class="auto-suggest-metrics">
         <span><b>${genderStyles().length}</b> curated looks</span>
@@ -2689,8 +2719,8 @@ function autoSuggestPanel() {
         <span><b>${suggestedProductsForStyle(style).length}</b> PDP anchors</span>
       </div>
       <div class="auto-suggest-actions">
-        <button class="wide-dark" data-action="auto-suggest">Auto Suggest Outfit</button>
-        <button class="wide-outline" data-action="daily-surprise">Surprise Me For The Day</button>
+        <button class="wide-dark" data-action="auto-suggest">Open Top PDP Match</button>
+        <button class="wide-outline" data-route="discover">Browse Suggestions</button>
       </div>
     </section>
   `;
@@ -2699,6 +2729,9 @@ function autoSuggestPanel() {
 function lookbookStudio(product, mode = "") {
   const style = selectedLookbookStyle();
   const styles = genderStyles();
+  const headingAction = state.route === "tryon"
+    ? { action: "auto-suggest", label: "Use Top PDP" }
+    : { action: "daily-surprise", label: "Surprise" };
   return `
     <section class="lookbook-studio ${mode}">
       <div class="lookbook-studio-heading">
@@ -2706,7 +2739,7 @@ function lookbookStudio(product, mode = "") {
           <span>Curated Lookbook · ${styles.length} ${genderLabel()} styles</span>
           <h2>${style.label}</h2>
         </div>
-        <button data-action="daily-surprise">Surprise</button>
+        <button data-action="${headingAction.action}">${headingAction.label}</button>
       </div>
       <p>${style.story}</p>
       <div class="style-story">

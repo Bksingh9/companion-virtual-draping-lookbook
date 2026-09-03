@@ -239,14 +239,14 @@ function inferCategoryFromText(value = "") {
 function fallbackUploadAnalysis(body = {}) {
   const text = `${body.title || ""} ${body.meta || ""} ${body.fallbackGender || ""}`;
   const lane = inferLaneFromText(text, body.fallbackGender);
-  const preferredCategory = inferCategoryFromText(text) || (lane === "female" ? "Ethnic" : "Live Moment");
+  const preferredCategory = inferCategoryFromText(text) || "Casual";
   return {
     mode: "local-fallback",
     recommendedGenderLane: lane,
     preferredCategory,
     confidence: 0.58,
     tags: [preferredCategory, lane === "female" ? "Women Topwear" : "Men Topwear"],
-    note: `${lane === "female" ? "Female" : "Male"} catalogue lane selected from upload signals. Switch anytime if the styling lane is not right.`,
+    note: `${lane === "female" ? "Female" : "Male"} catalogue lane unlocked from upload signals. Choose a PDP to drape next.`,
   };
 }
 
