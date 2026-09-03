@@ -38,6 +38,7 @@ Release sanity for the Companion AI Lookbook prototype:
 - Local Vertex Lookbook image creation: passed. `/api/generate-tryon-image` returned `mode: "vertex-try-on"`, `status: "done"` and `/generated-images/lookbook-image-1788468210760.png`.
 - Local Veo video generation: passed. `/api/generate-lookbook-video` consumed the generated VTO image path and returned `mode: "vertex"`, `status: "done"` and `/generated-videos/lookbook-1788468108563.mp4`.
 - Browser real-AI state: passed. The UI completed upload, style read, PDP, Create Lookbook, Vertex-generated image result, Veo-generated video at `/generated-videos/lookbook-1788468290801.mp4`, Lookbook library, female PDP route and Bag update.
+- Public shareable path: passed. GitHub Pages frontend with HTTPS backend tunnel completed the same real-AI browser QA and produced `/generated-images/lookbook-image-1788468677210.png` plus `https://e99f200d09bb1f.lhr.life/generated-videos/lookbook-1788468762863.mp4`.
 
 ## Fixes Made During QA
 
@@ -45,6 +46,7 @@ Release sanity for the Companion AI Lookbook prototype:
 - Removed browser-recorded video as a success fallback from the app.
 - Changed the UI so failed generation shows a real error/retry panel and does not save a fake Lookbook result.
 - Enabled CORS/private-network headers so a GitHub Pages frontend can call the local backend with `apiBase`.
+- Documented that a GitHub Pages HTTPS frontend needs an HTTPS backend or tunnel for live AI calls; plain local HTTP can be blocked by the browser.
 - Fixed Vertex Gemini image analysis to use the working REST payload shape and fail honestly if no usable JSON is returned.
 - Changed Vertex VTO output handling to save generated images under `/generated-images/`, avoiding huge browser data URL round-trips before Veo.
 - Hardened generated-image handoff so the backend accepts both relative local asset paths and absolute local asset URLs.

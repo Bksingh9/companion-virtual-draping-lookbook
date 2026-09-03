@@ -30,11 +30,13 @@ http://127.0.0.1:4173/
 
 The app now treats AI generation as a real backend contract. Upload analysis must come from Vertex Gemini, Lookbook image creation must come from Vertex `virtual-try-on-001`, and video must come from Veo. If a real AI call fails, the UI shows an error/retry state and does not mark the Lookbook or video as ready.
 
-The GitHub Pages link is a shareable frontend only. It cannot safely contain the Google service-account key. To use real AI from the Pages URL, keep the local Node server running and open the page with an API base:
+The GitHub Pages link is a shareable frontend only. It cannot safely contain the Google service-account key. To use real AI from the Pages URL, point `apiBase` to an HTTPS backend that runs this Node server with private environment variables. For a temporary local demo, create an HTTPS tunnel to the running local server, then pass that tunnel as `apiBase`:
 
 ```text
-https://bksingh9.github.io/companion-virtual-draping-lookbook/?apiBase=http%3A%2F%2F127.0.0.1%3A4173
+https://bksingh9.github.io/companion-virtual-draping-lookbook/?apiBase=https%3A%2F%2Fyour-https-backend.example
 ```
+
+Browsers can block an HTTPS GitHub Pages frontend from calling plain `http://127.0.0.1:4173`, so use the local `http://127.0.0.1:4173/` app directly for private testing or an HTTPS backend/tunnel for a shareable demo.
 
 Run the product-flow QA:
 
@@ -46,7 +48,7 @@ Run the browser click-through QA:
 
 ```bash
 npm run qa:browser
-QA_URL="https://bksingh9.github.io/companion-virtual-draping-lookbook/?apiBase=http%3A%2F%2F127.0.0.1%3A4173" npm run qa:browser
+QA_URL="https://bksingh9.github.io/companion-virtual-draping-lookbook/?apiBase=https%3A%2F%2Fyour-https-backend.example" npm run qa:browser
 ```
 
 ## Vertex Setup
