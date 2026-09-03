@@ -360,10 +360,18 @@ try {
 	    readyState: document.querySelector(".video-thumb video")?.readyState || 0,
 	    mode: document.querySelector(".video-copy p")?.textContent.includes("Vertex generated") ? "vertex" : "",
 	    message: document.querySelector(".video-copy p")?.textContent.trim() || "",
-	    src: document.querySelector(".video-thumb video")?.getAttribute("src") || ""
+	    src: (() => {
+	      const video = document.querySelector(".video-thumb video");
+	      return video?.currentSrc || video?.querySelector("source")?.getAttribute("src") || video?.getAttribute("src") || "";
+	    })(),
+	    openVideoVisible: document.body.innerText.includes("Open Video"),
+	    playVideoVisible: document.body.innerText.includes("Play Video"),
+	    copyVideoHidden: !document.body.innerText.includes("Copy Video URI") && !document.body.innerText.includes("Copy Prompt")
 	  }))()`);
 	  assert(videoProbe.ready && videoProbe.hasVideo && videoProbe.readyState >= 1, "Expected a playable Veo-generated video element.");
 	  assert(videoProbe.mode === "vertex", `Expected Vertex video message, got ${videoProbe.message}`);
+	  assert(videoProbe.src, "Expected playable video source URL.");
+	  assert(videoProbe.openVideoVisible && videoProbe.playVideoVisible && videoProbe.copyVideoHidden, "Expected shopper video controls without prompt/URI copy controls.");
   await click('[data-action="open-lookbook"]', "Lookbook action");
   await waitFor("curated Lookbook library", `(() => {
     const text = document.body.innerText.toLowerCase();

@@ -536,9 +536,24 @@ function buildVideoRequest(prompt, image) {
   const parameters = {
     aspectRatio: "9:16",
     sampleCount: 1,
+    durationSeconds: 8,
     resizeMode: "pad",
     personGeneration: "allow_adult",
     resolution: config.resolution,
+    negativePrompt: [
+      "unreadable outfit",
+      "underwear-only output",
+      "garment category change",
+      "face identity drift",
+      "duplicate body",
+      "warped hands",
+      "extra limbs",
+      "text overlays",
+      "logos",
+      "background flicker",
+      "jump cuts",
+      "shaky camera",
+    ].join(", "),
   };
   const storageUri = outputPrefix();
   if (storageUri) parameters.storageUri = storageUri;
@@ -605,15 +620,20 @@ function composeLookbookPrompt(body) {
     body.prompt ||
     `Create a short vertical in-store fashion lookbook video for ${product.brand || "TRENDS"} ${product.name || "the selected catalogue product"}.`;
   return [
+    "Single continuous shot, 8 seconds, vertical 9:16. Use a Higgsfield-style director brief: shot structure first, camera move second, subject/environment/lighting third, reward frame last.",
     basePrompt,
-    "Use TRENDS AI Senior Stylist logic: read the PDP details, infer the best avatar environment, and keep the result warm, premium, and consumer-welcoming.",
+    "Use TRENDS AI Senior Stylist logic: read the PDP details, infer the best avatar environment, and keep the result warm, premium, consumer-welcoming, and retail-ready.",
     `Curated lookbook style: ${style.label || "Store Spotlight"}; category: ${style.category || "Curated"}; occasion: ${style.occasion || "store-ready styling"}; stylist reason: ${style.reason || "make the look useful and personal"}.`,
+    body.referenceStyle ? `Reference-video direction: ${body.referenceStyle}` : "",
     `Environment avatar: ${environment.label || "Store Spotlight"}; scene: ${environment.scene || "clean retail lookbook stage"}; motion: ${environment.motion || "subtle full-body editorial movement"}.`,
     `Creator camera control: ${cameraMove.label || "Orbit Reveal"}; mood: ${cameraMove.mood || "premium scan"}; camera motion: ${cameraMove.motion || "slow full-body orbit with final hero hold"}; framing: ${cameraMove.framing || "vertical 9:16 full-body frame"}; beat: ${cameraMove.beat || "curiosity opening and gratification ending"}.`,
-    `Consumer journey: curiosity, one surprise reveal beat, and gratification through ${environment.gratification || "a saved lookbook-ready outfit"}.`,
-    "Reference mood: clean vertical full-body framing, cream/white studio polish, subtle branded editorial pacing, like the provided Pro Earth Men and Vacay Resortwear references.",
-    "Preserve the avatar identity and show style, colour and drape only; do not imply a guaranteed fit.",
-  ].join(" ");
+    "Camera grammar: no cuts, no jump zoom, no shaky handheld, no impossible limb motion. Prefer a controlled orbit, dolly/push-in or side-step reveal that keeps the outfit readable.",
+    `Consumer journey: curiosity opening, one clean surprise reveal beat, and gratification through ${environment.gratification || "a saved lookbook-ready outfit"}.`,
+    "Sound direction: subtle premium store ambience, soft camera whoosh on reveal, no speech, no loud music, no distracting crowd noise.",
+    "Reference mood: Pro Earth Men vertical studio discipline plus Vacay Resortwear retail energy: full-body framing, cream/white studio polish, soft premium light, catalogue clarity and creator-style motion.",
+    "Preserve the avatar identity, body proportions and selected draped outfit from the input image. Show style, colour and drape only; do not imply a guaranteed fit.",
+    "Avoid text overlays, extra logos, underwear-only output, garment category changes, warped hands, face drift, duplicate bodies, background flicker or product colour changes.",
+  ].filter(Boolean).join(" ");
 }
 
 async function generateVertexVideo(body) {
@@ -641,6 +661,7 @@ async function generateVertexVideo(body) {
 
   const { videoUri, videoUrl } = await extractVideoResult(current);
   if (current.done && !videoUri && !videoUrl) {
+    console.error("[vertex-video-empty]", JSON.stringify(current, null, 2).slice(0, 4000));
     const error = new Error("Vertex Veo completed without returning a video.");
     error.statusCode = 502;
     throw error;

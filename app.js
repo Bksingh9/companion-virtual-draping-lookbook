@@ -2383,22 +2383,24 @@ function reverseLookbookPrompt(product, environment = selectedEnvironment(), cam
     ? "Use the uploaded customer image as the avatar identity anchor and adapt the selected PDP outfit onto that person."
     : "Use the generated catalogue lookbook image as the first-frame avatar identity anchor.";
   return [
-    "TRENDS AI Senior Stylist reverse prompt for a vertical 9:16 in-store lookbook video.",
+    "Single continuous shot, 8 seconds, vertical 9:16, premium mobile-first fashion lookbook video.",
+    "Higgsfield-style director prompt: state the shot structure first, then camera movement, subject motion, environment, lighting and final reward frame.",
     avatarAnchor,
     `PDP source: ${product.brand} ${product.name}, ${product.fabric}, ${product.fit}, colour ${product.color}, ${product.price}, ${product.off}.`,
     `Curated lookbook edit: ${style.label}, category ${style.category}, occasion ${style.occasion}. Senior Stylist reason: ${style.reason}`,
     `Occasion avatar: ${environment.label} for ${environment.occasion}. Environment: ${environment.scene}.`,
-    `Motion grammar: ${environment.motion}. Match the clean full-body editorial pacing from the supplied Pro Earth and Vacay reference videos.`,
     `Camera director: ${cameraMove.label}. ${cameraMove.motion}. Framing: ${cameraMove.framing}. Beat: ${cameraMove.beat}.`,
+    `Motion grammar: ${environment.motion}. Use a controlled creator-camera move: gentle orbit or push-in, clean stabilization, no jitter, no cuts, no warped background.`,
+    "Reference-video feel: clean Pro Earth full-body studio reveal plus Vacay Resortwear vertical retail energy; polished, warm, aspirational and not gimmicky.",
     `Styling intent: ${product.drapeNote}`,
-    `Journey: start with curiosity, reveal one tasteful surprise beat, then end with gratification: ${environment.gratification}.`,
+    `Journey: start with curiosity, reveal one tasteful surprise beat around the outfit, then end with gratification: ${environment.gratification}.`,
     `Keep an adult ${state.selectedGender} full-body frame, appropriate complete outfit coverage, consistent face/body identity, unchanged garment category, premium store catalogue lighting, and no distorted hands or text artifacts.`,
     "Do not imply guaranteed fit; show style, colour, silhouette, and occasion confidence only.",
   ].join(" ");
 }
 
-function videoPrompt(product) {
-  return reverseLookbookPrompt(product);
+function videoPrompt(product, environment = selectedEnvironment(), cameraMove = selectedCameraMove(), style = selectedLookbookStyle()) {
+  return reverseLookbookPrompt(product, environment, cameraMove, style);
 }
 
 function waitForLookbookVideo(ms) {
@@ -2467,8 +2469,8 @@ async function generateLookbookVideo() {
   const renderedImage = currentRenderedImage(product);
   const payload = {
     productId: product.id,
-    prompt: videoPrompt(product),
-    referenceStyle: "Clean vertical full-body lookbook, using cues from Pro Earth Men, Vacay Resortwear, and creator-style AI camera control.",
+    prompt: videoPrompt(product, environment, cameraMove, style),
+    referenceStyle: `${style.label} lookbook inspired by the supplied Pro Earth Men and Vacay Resortwear video references: vertical full-body product clarity, controlled ${cameraMove.label} motion, warm premium light, and a final saved-look reward frame.`,
     environment,
     cameraMove,
     lookbookStyle: style,
@@ -2541,15 +2543,31 @@ async function generateLookbookVideo() {
   }
 }
 
-function copyVideoUri() {
-  if (!state.videoUri) {
-    flash("No video URI yet");
+function openGeneratedVideo() {
+  if (!state.videoUrl) {
+    flash("Generate the Lookbook video first");
     return;
   }
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(state.videoUri).catch(() => {});
+  window.open(state.videoUrl, "_blank", "noopener,noreferrer");
+  flash("Opening Lookbook video");
+}
+
+function playGeneratedVideo() {
+  const video = document.querySelector("[data-lookbook-video]");
+  if (!video) {
+    flash("Generate the Lookbook video first");
+    return;
   }
-  flash("Video URI copied");
+  if (video.paused) {
+    video.play().then(() => {
+      flash("Playing Lookbook video");
+    }).catch(() => {
+      openGeneratedVideo();
+    });
+    return;
+  }
+  video.pause();
+  flash("Video paused");
 }
 
 function handleOffer(offer) {
@@ -3366,13 +3384,16 @@ function generationErrorPanel() {
 function videoStatusPanel(product) {
   const isBusy = state.videoStatus === "generating" || state.videoStatus === "running";
   const isError = state.videoStatus === "error";
+  const isReady = state.videoStatus === "ready" && Boolean(state.videoUrl);
   const statusLabel = isBusy ? "Generating" : state.videoStatus === "ready" ? "Video Ready" : isError ? "Video Error" : "Waiting";
   const style = selectedLookbookStyle();
   return `
-    <div class="video-panel ${isBusy ? "busy" : ""} ${isError ? "error" : ""}">
+    <div class="video-panel ${isReady ? "ready" : ""} ${isBusy ? "busy" : ""} ${isError ? "error" : ""}">
       <div class="video-thumb">
         ${state.videoUrl ? `
-          <video src="${state.videoUrl}" playsinline muted loop controls></video>
+          <video data-lookbook-video playsinline muted loop controls preload="auto" poster="${currentRenderedImage(product)}">
+            <source src="${state.videoUrl}" type="video/mp4" />
+          </video>
         ` : `
           <img src="${currentRenderedImage(product)}" alt="${product.brand} ${product.name} video preview" />
         `}
@@ -3382,9 +3403,10 @@ function videoStatusPanel(product) {
       <div class="video-copy">
         <strong>${statusLabel}</strong>
         <p>${state.videoMessage || `Short ${style.label} lookbook video for this styled outfit.`}</p>
-        ${state.videoUri ? `
-          <button data-action="copy-video-uri">Copy Video URI</button>
-          <em>${state.videoUri}</em>
+        ${state.videoUrl ? `
+          <button data-action="play-video">Play Video</button>
+          <button data-action="open-video">Open Video</button>
+          <em>8 second vertical Lookbook clip</em>
         ` : ""}
       </div>
     </div>
@@ -3796,7 +3818,9 @@ function tvScreen() {
       <section class="tv-stage">
         <div class="tv-frame">
           ${state.videoUrl ? `
-            <video src="${state.videoUrl}" playsinline muted loop controls></video>
+            <video data-lookbook-video playsinline muted loop controls preload="auto" poster="${cast.image}">
+              <source src="${state.videoUrl}" type="video/mp4" />
+            </video>
           ` : `
             <img src="${cast.image}" alt="${cast.brand} ${cast.name} on store TV" />
           `}
@@ -4060,8 +4084,12 @@ function bindEvents() {
         generateLookbookVideo();
         return;
       }
-      if (action === "copy-video-uri") {
-        copyVideoUri();
+      if (action === "open-video") {
+        openGeneratedVideo();
+        return;
+      }
+      if (action === "play-video") {
+        playGeneratedVideo();
         return;
       }
       if (action === "cast-tv") {
@@ -4264,8 +4292,12 @@ function bindEvents() {
         generateLookbookVideo();
         return;
       }
-      if (action === "copy-video-uri") {
-        copyVideoUri();
+      if (action === "open-video") {
+        openGeneratedVideo();
+        return;
+      }
+      if (action === "play-video") {
+        playGeneratedVideo();
         return;
       }
       if (action === "cast-tv") {

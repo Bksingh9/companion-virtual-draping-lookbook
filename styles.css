@@ -3196,6 +3196,41 @@ button {
   border: 1px solid #d8b8a8;
 }
 
+.video-panel.ready {
+  grid-template-columns: 1fr;
+  background: #fbf8f1;
+  border: 1px solid #ded5c8;
+}
+
+.video-panel.ready .video-thumb {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  max-height: 520px;
+  border-radius: 8px;
+}
+
+.video-panel.ready .video-copy {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.video-panel.ready .video-copy strong,
+.video-panel.ready .video-copy p,
+.video-panel.ready .video-copy em {
+  grid-column: 1 / -1;
+}
+
+.video-panel.ready .video-copy button {
+  min-height: 44px;
+}
+
+.video-panel.ready .video-copy button:first-of-type {
+  background: var(--primary);
+  color: var(--surface);
+}
+
 @keyframes video-preview-pulse {
   from {
     transform: scale(1);
