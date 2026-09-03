@@ -32,7 +32,7 @@ const assets = {
   lookbookSheet: HC("six-male-looks-sheet.png"),
 };
 
-const currentLiveApiBase = "https://6cc8facc8f01ab.lhr.life";
+const currentLiveApiBase = "https://d137790b00caae.lhr.life";
 
 const categoryAssets = [
   ["Men Topwear", "cat-men-topwear.png", "large", "cat-men"],
