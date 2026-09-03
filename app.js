@@ -256,7 +256,7 @@ const cameraDirectorMoves = [
     label: "Reward Reveal",
     mood: "surprise drop",
     motion: "soft light wipe into the selected environment, then a confident still pose",
-    framing: "adult male full-body avatar, stable hands, trouser coverage maintained",
+    framing: "adult shopper full-body avatar, stable hands, complete outfit coverage maintained",
     beat: "curiosity to surprise to reward in one short loop",
   },
 ];
@@ -414,9 +414,529 @@ const curatedLookbookStyles = [
   },
 ];
 
+curatedLookbookStyles.forEach((style, index) => {
+  style.gender = "male";
+  style.dailySurprise = index < 10;
+});
+
+const maleProductRotation = [
+  "teamspirit-beige-jacket-look",
+  "netplay-navy-polo-look",
+  "teamspirit-black-bomber-look",
+  "dnmx-white-tee-trouser-look",
+  "performax-olive-tee-look",
+];
+
+const femaleProductRotation = [
+  "avaasa-pink-ethnic-set",
+  "dnmx-olive-denim-coord",
+  "avaasa-printed-kurta-set",
+  "avaasa-yellow-festive-dress",
+  "trends-white-pink-ethnic-look",
+];
+
+function slugifyStyle(value) {
+  return String(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function rotatedProductIds(order, index) {
+  return order.map((_, offset) => order[(index + offset) % order.length]);
+}
+
+function createCuratedLookbookStyle(blueprint, gender, index, dailySurprise = false) {
+  const label = blueprint.label;
+  const category = blueprint.category;
+  const occasion = blueprint.occasion;
+  const productIds = blueprint.productIds || rotatedProductIds(gender === "female" ? femaleProductRotation : maleProductRotation, index);
+  const audience = gender === "female" ? "her" : "his";
+  return {
+    id: `${gender}-${slugifyStyle(label)}`,
+    gender,
+    label,
+    category,
+    occasion,
+    environmentId: blueprint.environmentId,
+    cameraId: blueprint.cameraId,
+    accent: blueprint.accent,
+    confidence: blueprint.confidence || "91%",
+    dailySurprise,
+    story: blueprint.story || `${label} is a curated ${category.toLowerCase()} lookbook edit for ${occasion}, built from the uploaded avatar read and the in-store catalogue.`,
+    reason: blueprint.reason || `I use ${blueprint.angle} to guide ${audience} toward a specific outfit path without making the experience feel generic.`,
+    cta: blueprint.cta || `Create ${label}`,
+    productIds,
+    tags: blueprint.tags || [
+      gender === "female" ? "Women Topwear" : "Men Topwear",
+      category,
+      "Brand Store",
+      "Store Exclusive Discount",
+    ],
+  };
+}
+
+const maleAdditionalLookbooks = [
+  {
+    label: "Monday Leadership",
+    category: "Office",
+    occasion: "weekly review and leadership huddle",
+    environmentId: "office-briefing",
+    cameraId: "hero-push-in",
+    accent: "#4e6074",
+    confidence: "93%",
+    angle: "clean dark-bottom structure, quiet colour and a sharper first impression",
+    tags: ["Men Topwear", "Office", "Smart Casual", "Brand Store"],
+  },
+  {
+    label: "Startup Pitch",
+    category: "Office",
+    occasion: "pitch room and founder meeting",
+    environmentId: "office-briefing",
+    cameraId: "detail-to-full-body",
+    accent: "#384b5d",
+    confidence: "92%",
+    angle: "a confident top layer and minimal contrast that reads smart on camera",
+    tags: ["Men Topwear", "Office", "Formal", "Brand Store"],
+  },
+  {
+    label: "Friday Team Dinner",
+    category: "Date",
+    occasion: "team dinner after work",
+    environmentId: "date-night",
+    cameraId: "side-step-freeze",
+    accent: "#8c5d57",
+    confidence: "91%",
+    angle: "evening colour depth, relaxed structure and a polished dinner silhouette",
+    tags: ["Men Topwear", "Date", "Smart Casual", "Winter Collection"],
+  },
+  {
+    label: "Brunch Denim Reset",
+    category: "Casual",
+    occasion: "weekend brunch",
+    environmentId: "weekend-cafe",
+    cameraId: "orbit-reveal",
+    accent: "#a27753",
+    confidence: "95%",
+    angle: "light top contrast and comfort-first drape for a fresh daytime look",
+    tags: ["Men Topwear", "Casual", "Smart Casual", "Reorder Products"],
+  },
+  {
+    label: "Monsoon Layer",
+    category: "Travel",
+    occasion: "cloudy commute and mall day",
+    environmentId: "airport-lounge",
+    cameraId: "editorial-pan",
+    accent: "#5c6f69",
+    confidence: "89%",
+    angle: "weather-ready layering that still feels light enough for indoor retail",
+    tags: ["Men Topwear", "Travel", "Winter Collection", "Brand Store"],
+  },
+  {
+    label: "Gym To Errands",
+    category: "Sport Wear",
+    occasion: "training, coffee and quick errands",
+    environmentId: "gym-to-cafe",
+    cameraId: "detail-to-full-body",
+    accent: "#657f53",
+    confidence: "90%",
+    angle: "active comfort, breathable colour and a store-ready finish after the workout",
+    tags: ["Men Topwear", "Sport Wear", "Sports wear", "Casual"],
+  },
+  {
+    label: "Family Function",
+    category: "Ethnic",
+    occasion: "family celebration",
+    environmentId: "festive-evening",
+    cameraId: "mirror-reveal",
+    accent: "#b9904b",
+    confidence: "88%",
+    angle: "warm neutrals and darker grounding so the look feels respectful and easy",
+    tags: ["Men Topwear", "Ethnic", "Celebration", "Brand Store"],
+  },
+  {
+    label: "Music Night",
+    category: "Casual",
+    occasion: "concert and late-evening plan",
+    environmentId: "date-night",
+    cameraId: "runway-walk",
+    accent: "#5b4f63",
+    confidence: "90%",
+    angle: "streetwear contrast, movement and a stronger night-out visual",
+    tags: ["Men Topwear", "Casual", "Date", "Winter Collection"],
+  },
+  {
+    label: "Interview Ready",
+    category: "Formal",
+    occasion: "interview and introduction meeting",
+    environmentId: "office-briefing",
+    cameraId: "hero-push-in",
+    accent: "#2f3d49",
+    confidence: "92%",
+    angle: "clean lines, simple colour and a composed full-body read",
+    tags: ["Men Topwear", "Formal", "Office", "Smart Casual"],
+  },
+  {
+    label: "Festive Morning",
+    category: "Ethnic",
+    occasion: "daytime festive visit",
+    environmentId: "festive-evening",
+    cameraId: "reward-reveal",
+    accent: "#c7a44e",
+    confidence: "89%",
+    angle: "softer warm tones and a celebration cue that remains catalogue-real",
+    tags: ["Men Topwear", "Ethnic", "Celebration", "Store Exclusive Discount"],
+  },
+  {
+    label: "Store Drop Hero",
+    category: "Live Moment",
+    occasion: "new collection reveal",
+    environmentId: "store-spotlight",
+    cameraId: "tv-poster-loop",
+    accent: "#d3aa78",
+    confidence: "94%",
+    angle: "a high-confidence store-TV composition with a hero product reveal",
+    tags: ["Men Topwear", "Brand Store", "Store Exclusive Discount"],
+  },
+  {
+    label: "Minimal Luxe",
+    category: "Formal",
+    occasion: "premium minimal dinner",
+    environmentId: "formal-evening",
+    cameraId: "turntable-drape",
+    accent: "#303135",
+    confidence: "90%",
+    angle: "tonal restraint, black grounding and one premium material cue",
+    tags: ["Men Topwear", "Formal", "Date", "Smart Casual"],
+  },
+  {
+    label: "Campus Smart",
+    category: "Casual",
+    occasion: "college presentation and hangout",
+    environmentId: "weekend-cafe",
+    cameraId: "orbit-reveal",
+    accent: "#72866c",
+    confidence: "91%",
+    angle: "youthful comfort and a cleaner top choice that still feels everyday",
+    tags: ["Men Topwear", "Casual", "Smart Casual", "Reorder Products"],
+  },
+  {
+    label: "Long Drive",
+    category: "Travel",
+    occasion: "road trip and day out",
+    environmentId: "airport-lounge",
+    cameraId: "editorial-pan",
+    accent: "#6a7960",
+    confidence: "90%",
+    angle: "breathable layers and easy movement for a travel-day silhouette",
+    tags: ["Men Topwear", "Travel", "Casual", "Smart Casual"],
+  },
+  {
+    label: "Anniversary Dinner",
+    category: "Date",
+    occasion: "anniversary dinner",
+    environmentId: "date-night",
+    cameraId: "side-step-freeze",
+    accent: "#8f565f",
+    confidence: "91%",
+    angle: "a darker elevated outfit with a gentle reveal and confident posture",
+    tags: ["Men Topwear", "Date", "Formal", "Winter Collection"],
+  },
+];
+
+const femaleLookbookBlueprints = [
+  {
+    label: "Ethnic Pink Celebration",
+    category: "Ethnic",
+    occasion: "family celebration and festive gifting",
+    environmentId: "festive-evening",
+    cameraId: "mirror-reveal",
+    accent: "#d88f9f",
+    confidence: "95%",
+    productIds: ["trends-white-pink-ethnic-look", "avaasa-printed-kurta-set", "avaasa-yellow-festive-dress", "avaasa-pink-ethnic-set", "dnmx-olive-denim-coord"],
+    angle: "soft festive colour, graceful drape and a warm celebration frame",
+    tags: ["Women Topwear", "Ethnic", "Celebration", "Brand Store"],
+  },
+  {
+    label: "Office Power Edit",
+    category: "Office",
+    occasion: "work meetings and presentation day",
+    environmentId: "office-briefing",
+    cameraId: "hero-push-in",
+    accent: "#596579",
+    confidence: "93%",
+    productIds: ["dnmx-olive-denim-coord", "avaasa-printed-kurta-set", "trends-white-pink-ethnic-look", "avaasa-pink-ethnic-set", "avaasa-yellow-festive-dress"],
+    angle: "confident vertical line, polished neutral styling and sharper weekday energy",
+    tags: ["Women Topwear", "Office", "Smart Casual", "Brand Store"],
+  },
+  {
+    label: "Date Night Glow",
+    category: "Date",
+    occasion: "dinner date and rooftop evening",
+    environmentId: "date-night",
+    cameraId: "side-step-freeze",
+    accent: "#9b5661",
+    confidence: "92%",
+    angle: "soft contrast, a flattering reveal and richer evening colour",
+    tags: ["Women Topwear", "Date", "Formal", "Celebration"],
+  },
+  {
+    label: "Casual Brunch",
+    category: "Casual",
+    occasion: "brunch, coffee and friends",
+    environmentId: "weekend-cafe",
+    cameraId: "orbit-reveal",
+    accent: "#a98463",
+    confidence: "94%",
+    angle: "easy denim movement, relaxed topwear and a bright day-out read",
+    tags: ["Women Topwear", "Casual", "Smart Casual", "Reorder Products"],
+  },
+  {
+    label: "Sport Luxe Day",
+    category: "Sport Wear",
+    occasion: "wellness morning and active errands",
+    environmentId: "gym-to-cafe",
+    cameraId: "detail-to-full-body",
+    accent: "#6d8168",
+    confidence: "89%",
+    angle: "active comfort translated into a polished store-ready outfit",
+    tags: ["Women Topwear", "Sport Wear", "Sports wear", "Casual"],
+  },
+  {
+    label: "Resort Flow",
+    category: "Resort",
+    occasion: "holiday resort and beachside brunch",
+    environmentId: "vacay-resortwear",
+    cameraId: "runway-walk",
+    accent: "#df9870",
+    confidence: "91%",
+    angle: "light movement, resort colour and a graceful vacation silhouette",
+    tags: ["Women Topwear", "Resort", "Travel", "Smart Casual"],
+  },
+  {
+    label: "Formal Evening",
+    category: "Formal",
+    occasion: "premium dinner and event night",
+    environmentId: "formal-evening",
+    cameraId: "turntable-drape",
+    accent: "#36363a",
+    confidence: "90%",
+    angle: "controlled lighting, elegant posture and a more refined outfit story",
+    tags: ["Women Topwear", "Formal", "Date", "Celebration"],
+  },
+  {
+    label: "Wedding Guest",
+    category: "Celebration",
+    occasion: "wedding guest and reception",
+    environmentId: "wedding-guest",
+    cameraId: "tv-poster-loop",
+    accent: "#c79d48",
+    confidence: "93%",
+    angle: "occasion colour, graceful full-length drape and shareable celebration polish",
+    tags: ["Women Topwear", "Ethnic", "Celebration", "Store Exclusive Discount"],
+  },
+  {
+    label: "Airport Lounge",
+    category: "Travel",
+    occasion: "flight day and lounge stop",
+    environmentId: "airport-lounge",
+    cameraId: "editorial-pan",
+    accent: "#637989",
+    confidence: "90%",
+    angle: "comfort, pockets-ready practicality and a polished travel frame",
+    tags: ["Women Topwear", "Travel", "Casual", "Smart Casual"],
+  },
+  {
+    label: "Festive Morning",
+    category: "Ethnic",
+    occasion: "daytime pooja and family visit",
+    environmentId: "festive-evening",
+    cameraId: "reward-reveal",
+    accent: "#d7bd4f",
+    confidence: "94%",
+    angle: "sunny colour, light festive detailing and a warm reveal moment",
+    tags: ["Women Topwear", "Ethnic", "Celebration", "Brand Store"],
+  },
+  {
+    label: "College Smart",
+    category: "Casual",
+    occasion: "campus day and project review",
+    environmentId: "weekend-cafe",
+    cameraId: "orbit-reveal",
+    accent: "#75876f",
+    confidence: "91%",
+    angle: "denim ease and clean casual styling that stays presentable",
+    tags: ["Women Topwear", "Casual", "Smart Casual", "Reorder Products"],
+  },
+  {
+    label: "Monday Meeting",
+    category: "Office",
+    occasion: "first meeting of the week",
+    environmentId: "office-briefing",
+    cameraId: "hero-push-in",
+    accent: "#56677a",
+    confidence: "92%",
+    angle: "quiet confidence, composed colour and a neat vertical fit read",
+    tags: ["Women Topwear", "Office", "Formal", "Brand Store"],
+  },
+  {
+    label: "Weekend Market",
+    category: "Casual",
+    occasion: "shopping street and market walk",
+    environmentId: "weekend-cafe",
+    cameraId: "runway-walk",
+    accent: "#b0825e",
+    confidence: "90%",
+    angle: "comfortable movement, breathable pieces and easy styling",
+    tags: ["Women Topwear", "Casual", "Travel", "Smart Casual"],
+  },
+  {
+    label: "Dinner With Friends",
+    category: "Date",
+    occasion: "friends dinner and photos",
+    environmentId: "date-night",
+    cameraId: "side-step-freeze",
+    accent: "#915766",
+    confidence: "91%",
+    angle: "evening-friendly polish without becoming too formal",
+    tags: ["Women Topwear", "Date", "Casual", "Celebration"],
+  },
+  {
+    label: "Monsoon Layer",
+    category: "Travel",
+    occasion: "rainy day and commute",
+    environmentId: "airport-lounge",
+    cameraId: "editorial-pan",
+    accent: "#68766d",
+    confidence: "89%",
+    angle: "light layers and practical comfort for changing weather",
+    tags: ["Women Topwear", "Travel", "Smart Casual", "Brand Store"],
+  },
+  {
+    label: "Family Function",
+    category: "Ethnic",
+    occasion: "home function and family photos",
+    environmentId: "festive-evening",
+    cameraId: "mirror-reveal",
+    accent: "#bd904a",
+    confidence: "93%",
+    angle: "festive warmth, elegant length and a softer family-event mood",
+    tags: ["Women Topwear", "Ethnic", "Celebration", "Store Exclusive Discount"],
+  },
+  {
+    label: "Store Drop Hero",
+    category: "Live Moment",
+    occasion: "new collection reveal",
+    environmentId: "store-spotlight",
+    cameraId: "tv-poster-loop",
+    accent: "#d1a576",
+    confidence: "94%",
+    angle: "a polished store-screen reveal that makes the catalogue feel personal",
+    tags: ["Women Topwear", "Brand Store", "Store Exclusive Discount"],
+  },
+  {
+    label: "Minimal Luxe",
+    category: "Formal",
+    occasion: "minimal premium dinner",
+    environmentId: "formal-evening",
+    cameraId: "turntable-drape",
+    accent: "#3c3936",
+    confidence: "90%",
+    angle: "simple lines, graceful colour control and a premium evening finish",
+    tags: ["Women Topwear", "Formal", "Date", "Smart Casual"],
+  },
+  {
+    label: "Coffee Catch-Up",
+    category: "Casual",
+    occasion: "coffee catch-up",
+    environmentId: "weekend-cafe",
+    cameraId: "orbit-reveal",
+    accent: "#9e7a64",
+    confidence: "92%",
+    angle: "fresh casual styling with enough polish for quick photos",
+    tags: ["Women Topwear", "Casual", "Smart Casual", "Reorder Products"],
+  },
+  {
+    label: "Evening Walk",
+    category: "Sport Wear",
+    occasion: "evening walk and relaxed outing",
+    environmentId: "gym-to-cafe",
+    cameraId: "detail-to-full-body",
+    accent: "#788468",
+    confidence: "88%",
+    angle: "sport-inspired comfort with a calmer everyday finish",
+    tags: ["Women Topwear", "Sport Wear", "Casual", "Travel"],
+  },
+  {
+    label: "Interview Ready",
+    category: "Formal",
+    occasion: "interview and introduction call",
+    environmentId: "office-briefing",
+    cameraId: "hero-push-in",
+    accent: "#3f4d59",
+    confidence: "92%",
+    angle: "composed colour, modest silhouette and clear professional intent",
+    tags: ["Women Topwear", "Formal", "Office", "Smart Casual"],
+  },
+  {
+    label: "Celebration Saree Mood",
+    category: "Celebration",
+    occasion: "sangeet-inspired evening",
+    environmentId: "wedding-guest",
+    cameraId: "reward-reveal",
+    accent: "#c08872",
+    confidence: "89%",
+    angle: "festive movement and ceremony mood using available ethnic catalogue pieces",
+    tags: ["Women Topwear", "Celebration", "Ethnic", "Store Exclusive Discount"],
+  },
+  {
+    label: "Travel Capsule",
+    category: "Travel",
+    occasion: "two-day trip packing",
+    environmentId: "airport-lounge",
+    cameraId: "editorial-pan",
+    accent: "#5f7780",
+    confidence: "91%",
+    angle: "mixable pieces and compact styling for repeatable travel outfits",
+    tags: ["Women Topwear", "Travel", "Casual", "Brand Store"],
+  },
+  {
+    label: "Sunday Ethnic",
+    category: "Ethnic",
+    occasion: "Sunday family lunch",
+    environmentId: "festive-evening",
+    cameraId: "mirror-reveal",
+    accent: "#caa24f",
+    confidence: "92%",
+    angle: "soft ethnic detailing with comfortable all-day movement",
+    tags: ["Women Topwear", "Ethnic", "Casual", "Celebration"],
+  },
+  {
+    label: "Anniversary Glow",
+    category: "Date",
+    occasion: "anniversary dinner",
+    environmentId: "date-night",
+    cameraId: "side-step-freeze",
+    accent: "#a45d70",
+    confidence: "91%",
+    angle: "romantic colour, clean frame and a rewarding final reveal",
+    tags: ["Women Topwear", "Date", "Celebration", "Formal"],
+  },
+];
+
+curatedLookbookStyles.push(
+  ...maleAdditionalLookbooks.map((style, index) => createCuratedLookbookStyle(style, "male", index + curatedLookbookStyles.length, false)),
+  ...femaleLookbookBlueprints.map((style, index) => createCuratedLookbookStyle(style, "female", index, index < 10)),
+);
+
+const curatedStyleCounts = {
+  male: curatedLookbookStyles.filter((style) => style.gender === "male").length,
+  female: curatedLookbookStyles.filter((style) => style.gender === "female").length,
+  maleSurprises: curatedLookbookStyles.filter((style) => style.gender === "male" && style.dailySurprise).length,
+  femaleSurprises: curatedLookbookStyles.filter((style) => style.gender === "female" && style.dailySurprise).length,
+};
+
 const products = [
   {
     id: "trends-cream-tee-look",
+    gender: "male",
     brand: "TRENDS",
     name: "Men Beige T-Shirt With Black Pants",
     source: "Store Catalogue",
@@ -437,6 +957,7 @@ const products = [
   },
   {
     id: "dnmx-white-tee-trouser-look",
+    gender: "male",
     brand: "DNMX",
     name: "Men White T-Shirt With Black Trousers",
     source: "Store Catalogue",
@@ -457,6 +978,7 @@ const products = [
   },
   {
     id: "teamspirit-beige-jacket-look",
+    gender: "male",
     brand: "TEAMSPIRIT",
     name: "Men Beige Jacket With Black Pants",
     source: "Store Catalogue",
@@ -477,6 +999,7 @@ const products = [
   },
   {
     id: "netplay-navy-polo-look",
+    gender: "male",
     brand: "NETPLAY",
     name: "Men Navy Polo With Black Pants",
     source: "Store Catalogue",
@@ -497,6 +1020,7 @@ const products = [
   },
   {
     id: "performax-olive-tee-look",
+    gender: "male",
     brand: "PERFORMAX",
     name: "Men Olive T-Shirt With Black Pants",
     source: "Store Catalogue",
@@ -517,6 +1041,7 @@ const products = [
   },
   {
     id: "teamspirit-black-bomber-look",
+    gender: "male",
     brand: "TEAMSPIRIT",
     name: "Men Black Bomber With Black Pants",
     source: "Store Catalogue",
@@ -535,6 +1060,111 @@ const products = [
     color: "#202226",
     tags: ["All Products", "Men Topwear", "Winter Collection", "Brand Store", "Date", "Formal", "Sport Wear", "Celebration", "Scanned Products", "Store Exclusive Discount"],
   },
+  {
+    id: "trends-white-pink-ethnic-look",
+    gender: "female",
+    brand: "TRENDS",
+    name: "Women White Pink Ethnic Set",
+    source: "Store Catalogue",
+    fabric: "Printed cotton blend",
+    sizes: ["XS", "S", "M", "L"],
+    styleMatch: "95%",
+    drapeNote: "A soft white and pink ethnic set gives a premium celebration read with graceful coverage and easy movement.",
+    occasion: "Festive celebration",
+    price: "Rs.2,499",
+    mrp: "Rs.3,999",
+    off: "38% OFF",
+    image: P("wishlist-1.png"),
+    tryonImage: P("wishlist-1.png"),
+    garment: "female-ethnic-set",
+    fit: "female-body-fit",
+    color: "#e7b5be",
+    tags: ["All Products", "Women Topwear", "Ethnic", "Celebration", "Date", "Brand Store", "Store Exclusive Discount", "Scanned Products"],
+  },
+  {
+    id: "dnmx-olive-denim-coord",
+    gender: "female",
+    brand: "DNMX",
+    name: "Women Olive Tank With Wide-Leg Denim",
+    source: "Store Catalogue",
+    fabric: "Rib cotton and denim",
+    sizes: ["XS", "S", "M", "L"],
+    styleMatch: "91%",
+    drapeNote: "The olive top and wide-leg denim make a strong casual-to-travel look with relaxed proportions.",
+    occasion: "Casual day out",
+    price: "Rs.1,899",
+    mrp: "Rs.2,999",
+    off: "37% OFF",
+    image: P("wishlist-2.png"),
+    tryonImage: P("wishlist-2.png"),
+    garment: "female-casual-set",
+    fit: "female-body-fit",
+    color: "#747052",
+    tags: ["All Products", "Women Topwear", "Casual", "Travel", "Smart Casual", "Sport Wear", "Brand Store", "Reorder Products"],
+  },
+  {
+    id: "avaasa-printed-kurta-set",
+    gender: "female",
+    brand: "AVAASA",
+    name: "Women Printed Kurta With Palazzos",
+    source: "Store Catalogue",
+    fabric: "Printed rayon blend",
+    sizes: ["S", "M", "L", "XL"],
+    styleMatch: "94%",
+    drapeNote: "The printed kurta gives a polished ethnic line with light palazzos for family and festive occasions.",
+    occasion: "Ethnic family event",
+    price: "Rs.2,199",
+    mrp: "Rs.3,499",
+    off: "37% OFF",
+    image: P("wishlist-3.png"),
+    tryonImage: P("wishlist-3.png"),
+    garment: "female-kurta-set",
+    fit: "female-body-fit",
+    color: "#8b4f36",
+    tags: ["All Products", "Women Topwear", "Ethnic", "Celebration", "Office", "Brand Store", "Store Exclusive Discount"],
+  },
+  {
+    id: "avaasa-yellow-festive-dress",
+    gender: "female",
+    brand: "AVAASA",
+    name: "Women Yellow Embroidered Dress",
+    source: "Store Catalogue",
+    fabric: "Light woven cotton",
+    sizes: ["XS", "S", "M", "L", "XL"],
+    styleMatch: "93%",
+    drapeNote: "Yellow embroidery creates a bright festive morning look while staying soft and breathable.",
+    occasion: "Festive morning",
+    price: "Rs.2,699",
+    mrp: "Rs.4,299",
+    off: "37% OFF",
+    image: P("wishlist-4.png"),
+    tryonImage: P("wishlist-4.png"),
+    garment: "female-festive-dress",
+    fit: "female-body-fit",
+    color: "#d6c54d",
+    tags: ["All Products", "Women Topwear", "Ethnic", "Celebration", "Resort", "Brand Store", "Store Exclusive Discount"],
+  },
+  {
+    id: "avaasa-pink-ethnic-set",
+    gender: "female",
+    brand: "AVAASA",
+    name: "Women Pink Celebration Kurta Set",
+    source: "Store Catalogue",
+    fabric: "Soft festive woven",
+    sizes: ["S", "M", "L", "XL"],
+    styleMatch: "92%",
+    drapeNote: "A pink ethnic story gives an elegant celebration option for users who want a warmer event look.",
+    occasion: "Celebration edit",
+    price: "Rs.2,399",
+    mrp: "Rs.3,799",
+    off: "37% OFF",
+    image: P("wishlist-1.png"),
+    tryonImage: P("wishlist-1.png"),
+    garment: "female-kurta-set",
+    fit: "female-body-fit",
+    color: "#d89aa8",
+    tags: ["All Products", "Women Topwear", "Ethnic", "Celebration", "Date", "Store Exclusive Discount", "Reorder Products"],
+  },
 ];
 
 const previewProductId = products[0].id;
@@ -544,6 +1174,7 @@ const galleryImages = [
     title: "Real Model Photo",
     meta: "Camera Roll",
     image: assets.realModel,
+    gender: "male",
     guardrailStatus: "partial",
   },
   {
@@ -551,6 +1182,15 @@ const galleryImages = [
     title: "Beige Full Body",
     meta: "Gallery",
     image: assets.sample,
+    gender: "male",
+    guardrailStatus: "ready",
+  },
+  {
+    id: "female-ethnic-gallery-model",
+    title: "Female Ethnic Sample",
+    meta: "TRENDS Gallery",
+    image: P("wishlist-1.png"),
+    gender: "female",
     guardrailStatus: "ready",
   },
 ];
@@ -572,6 +1212,12 @@ const state = {
   selectedEnvironmentId: "store-spotlight",
   selectedCameraId: "reward-reveal",
   selectedLookbookStyleId: "match-day-to-store",
+  selectedGender: "male",
+  detectedGender: "",
+  autoSuggestStatus: "idle",
+  autoSuggestNote: "",
+  dailySurpriseId: "",
+  latestAnalysisToken: 0,
   uploadSourcePath: "",
   uploadedPhotoTitle: "",
   uploadedPhotoMeta: "",
@@ -603,12 +1249,51 @@ const state = {
 const app = document.querySelector("#app");
 let toastTimer = 0;
 
+function normalizedGender(value) {
+  return value === "female" ? "female" : "male";
+}
+
+function genderLabel(gender = state.selectedGender) {
+  return normalizedGender(gender) === "female" ? "Female" : "Male";
+}
+
+function genderStyles(gender = state.selectedGender) {
+  const target = normalizedGender(gender);
+  return curatedLookbookStyles.filter((style) => style.gender === target);
+}
+
+function genderProducts(gender = state.selectedGender) {
+  const target = normalizedGender(gender);
+  return products.filter((product) => product.gender === target && product.id !== previewProductId);
+}
+
+function defaultStyleForGender(gender = state.selectedGender) {
+  const target = normalizedGender(gender);
+  return genderStyles(target)[0] || curatedLookbookStyles[0];
+}
+
+function defaultProductForGender(gender = state.selectedGender) {
+  const target = normalizedGender(gender);
+  if (target === "male") return products.find((product) => product.id === previewProductId) || products[0];
+  return genderProducts(target)[0] || products.find((product) => product.id === previewProductId) || products[0];
+}
+
+function productMatchesGender(productId, gender = state.selectedGender) {
+  const product = products.find((item) => item.id === productId);
+  if (!product) return false;
+  return product.gender === normalizedGender(gender);
+}
+
 function selectedProduct() {
-  return products.find((product) => product.id === state.selectedId) || products[0];
+  const product = products.find((item) => item.id === state.selectedId);
+  if (product && productMatchesGender(product.id, state.selectedGender)) return product;
+  return defaultProductForGender(state.selectedGender);
 }
 
 function renderedProduct() {
-  return products.find((product) => product.id === state.renderedId) || products[0];
+  const product = products.find((item) => item.id === state.renderedId);
+  if (product && productMatchesGender(product.id, state.selectedGender)) return product;
+  return selectedProduct();
 }
 
 function selectedEnvironment() {
@@ -620,7 +1305,9 @@ function selectedCameraMove() {
 }
 
 function selectedLookbookStyle() {
-  return curatedLookbookStyles.find((style) => style.id === state.selectedLookbookStyleId) || curatedLookbookStyles[0];
+  const style = curatedLookbookStyles.find((item) => item.id === state.selectedLookbookStyleId);
+  if (style && style.gender === normalizedGender(state.selectedGender)) return style;
+  return defaultStyleForGender(state.selectedGender);
 }
 
 function syncLookbookStyleInternals(style = selectedLookbookStyle()) {
@@ -656,13 +1343,125 @@ function clearTryOnOutput() {
 function selectLookbookStyle(id) {
   const style = curatedLookbookStyles.find((item) => item.id === id);
   if (!style) return;
+  state.selectedGender = normalizedGender(style.gender);
   state.selectedLookbookStyleId = style.id;
   syncLookbookStyleInternals(style);
   state.activeCollection = style.tags[0] || "Men Topwear";
+  if (!productMatchesGender(state.selectedId, state.selectedGender)) {
+    const nextProduct = suggestedProductsForStyle(style)[0] || defaultProductForGender(state.selectedGender);
+    state.selectedId = nextProduct.id;
+  }
   state.searchQuery = "";
   clearTryOnOutput();
   render();
   flash(`${style.label} unlocked`);
+}
+
+function setCatalogueLane(gender, options = {}) {
+  const nextGender = normalizedGender(gender);
+  const nextStyle = defaultStyleForGender(nextGender);
+  state.selectedGender = nextGender;
+  state.detectedGender = state.detectedGender || nextGender;
+  state.selectedLookbookStyleId = nextStyle.id;
+  syncLookbookStyleInternals(nextStyle);
+  const nextProduct = suggestedProductsForStyle(nextStyle)[0] || defaultProductForGender(nextGender);
+  state.selectedId = nextProduct.id;
+  state.renderedId = previewProductId;
+  state.selectedSize = "";
+  state.activeCollection = nextStyle.tags[0] || (nextGender === "female" ? "Women Topwear" : "Men Topwear");
+  state.searchQuery = "";
+  state.dailySurpriseId = "";
+  state.autoSuggestStatus = state.uploadConfirmed ? "ready" : "idle";
+  state.autoSuggestNote = state.uploadConfirmed
+    ? `${genderLabel(nextGender)} catalogue lane selected. I can auto-suggest a PDP look from here.`
+    : "";
+  clearTryOnOutput();
+  state.renderStatus = state.uploadConfirmed ? "selected" : "ready";
+  if (!options.silent) {
+    render();
+    flash(`${genderLabel(nextGender)} catalogue lane selected`);
+  }
+}
+
+function autoSuggestLook(options = {}) {
+  if (!state.uploadConfirmed) {
+    state.galleryOpen = true;
+    state.route = "tryon";
+    render();
+    resetScroll();
+    flash("Upload an image first");
+    return;
+  }
+  const style = uploadStyleForGender(state.selectedGender, {
+    title: `${state.uploadedPhotoTitle} ${state.autoSuggestNote}`,
+    meta: state.uploadedPhotoMeta,
+  });
+  state.selectedLookbookStyleId = style.id;
+  syncLookbookStyleInternals(style);
+  const product = suggestedProductsForStyle(style)[0] || defaultProductForGender(state.selectedGender);
+  state.selectedId = product.id;
+  state.renderedId = previewProductId;
+  state.selectedSize = "";
+  state.renderStatus = "selected";
+  state.tryOnImageUrl = "";
+  state.tryOnImageUri = "";
+  state.tryOnMode = "";
+  state.tryOnMessage = "";
+  state.tryOnError = "";
+  clearVideoState();
+  state.autoSuggestStatus = "ready";
+  state.autoSuggestNote = `${style.label} selected with ${product.brand} ${product.name} as the strongest PDP match.`;
+  state.route = options.stay ? "tryon" : "pdp";
+  render();
+  resetScroll();
+  flash("Auto suggestion ready");
+}
+
+function dailySurpriseStylesForGender(gender = state.selectedGender) {
+  return genderStyles(gender).filter((style) => style.dailySurprise).slice(0, 10);
+}
+
+function dailySurpriseIndex(total) {
+  if (!total) return 0;
+  const dateKey = new Date().toISOString().slice(0, 10);
+  const seed = `${dateKey}-${state.uploadedPhotoTitle || "guest"}-${state.selectedGender}`;
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  return hash % total;
+}
+
+function surpriseMeForTheDay(options = {}) {
+  if (!state.uploadConfirmed) {
+    state.galleryOpen = true;
+    state.route = "tryon";
+    render();
+    resetScroll();
+    flash("Upload an image first");
+    return;
+  }
+  const choices = dailySurpriseStylesForGender(state.selectedGender);
+  const style = options.random
+    ? choices[Math.floor(Math.random() * choices.length)]
+    : choices[dailySurpriseIndex(choices.length)];
+  if (!style) return;
+  state.selectedLookbookStyleId = style.id;
+  state.dailySurpriseId = style.id;
+  syncLookbookStyleInternals(style);
+  const productsForStyle = suggestedProductsForStyle(style);
+  const product = productsForStyle[options.random ? Math.floor(Math.random() * productsForStyle.length) : 0] || defaultProductForGender(state.selectedGender);
+  state.selectedId = product.id;
+  state.renderedId = previewProductId;
+  state.selectedSize = "";
+  state.renderStatus = "selected";
+  clearTryOnOutput();
+  state.autoSuggestStatus = "ready";
+  state.autoSuggestNote = `${style.label} is today's surprise. It is built for ${style.occasion} with ${product.brand} as the PDP anchor.`;
+  state.route = "pdp";
+  render();
+  resetScroll();
+  flash(`${style.label} picked for today`);
 }
 
 function selectEnvironment(id) {
@@ -693,7 +1492,7 @@ function bagBadge() {
 }
 
 function plpProducts() {
-  return products.filter((product) => product.id !== previewProductId);
+  return genderProducts(state.selectedGender);
 }
 
 function escapeHTML(value) {
@@ -719,7 +1518,7 @@ function filteredProducts() {
 }
 
 function suggestedProductsForStyle(style = selectedLookbookStyle()) {
-  const pool = plpProducts();
+  const pool = genderProducts(style.gender || state.selectedGender);
   const ordered = (style.productIds || [])
     .map((id) => pool.find((product) => product.id === id))
     .filter(Boolean);
@@ -734,12 +1533,20 @@ function suggestedProductsForStyle(style = selectedLookbookStyle()) {
 }
 
 function styleCategoryChips() {
-  return curatedLookbookStyles.map((style) => style.category);
+  return [...new Set(genderStyles().map((style) => style.category))];
 }
 
 function routeTo(route, options = {}) {
   if (options.collection) {
     state.activeCollection = options.collection;
+    const currentGender = state.selectedGender;
+    if (/^women/i.test(options.collection)) state.selectedGender = "female";
+    if (/^men/i.test(options.collection)) state.selectedGender = "male";
+    if (currentGender !== state.selectedGender) {
+      const nextStyle = defaultStyleForGender(state.selectedGender);
+      state.selectedLookbookStyleId = nextStyle.id;
+      syncLookbookStyleInternals(nextStyle);
+    }
     state.searchQuery = "";
   }
   if (route !== state.route) state.previousRoute = state.route;
@@ -752,15 +1559,22 @@ function routeTo(route, options = {}) {
 }
 
 function resetTryOnFlow(options = {}) {
-  state.selectedId = previewProductId;
+  const baseGender = normalizedGender(options.preserveStyle ? state.selectedGender : state.detectedGender || state.selectedGender);
+  const baseStyle = options.preserveStyle ? selectedLookbookStyle() : defaultStyleForGender(baseGender);
+  const baseProduct = defaultProductForGender(baseGender);
+  state.selectedGender = baseGender;
+  state.selectedLookbookStyleId = baseStyle.id;
+  state.selectedId = baseProduct.id;
   state.renderedId = previewProductId;
   state.uploadedPhoto = null;
   state.uploadSourcePath = "";
   state.uploadedPhotoTitle = "";
   state.uploadedPhotoMeta = "";
   state.guardrailStatus = "pending";
-  if (!options.preserveStyle) state.selectedLookbookStyleId = "match-day-to-store";
-  syncLookbookStyleInternals();
+  state.autoSuggestStatus = "idle";
+  state.autoSuggestNote = "";
+  state.dailySurpriseId = "";
+  syncLookbookStyleInternals(baseStyle);
   state.renderStatus = "ready";
   state.tryOnImageUrl = "";
   state.tryOnImageUri = "";
@@ -795,7 +1609,7 @@ function visibleGalleryImages() {
     return galleryImages.filter((item) => item.id === "real-model-stadium");
   }
   if (state.galleryTab === "TRENDS") {
-    return galleryImages.filter((item) => item.id === "beige-gallery-model");
+    return galleryImages.filter((item) => item.id !== "real-model-stadium");
   }
   return galleryImages;
 }
@@ -825,14 +1639,103 @@ function imageGuardrailStatus(src) {
   });
 }
 
+function inferGenderLaneFromText(value = "") {
+  const text = String(value).toLowerCase();
+  if (/\b(female|woman|women|girl|lady|ladies|her|she|kurta|saree|dress|ethnic|avaasa)\b/.test(text)) return "female";
+  if (/\b(male|man|men|boy|him|he|shirt|tee|polo|bomber|trouser|teamspirit|netplay|performax)\b/.test(text)) return "male";
+  return "";
+}
+
+function uploadGenderLane(meta = {}) {
+  return normalizedGender(meta.gender || inferGenderLaneFromText(`${meta.title || ""} ${meta.meta || ""}`) || state.selectedGender);
+}
+
+function uploadStyleForGender(gender, meta = {}) {
+  const target = normalizedGender(gender);
+  const titleSignal = `${meta.title || ""} ${meta.meta || ""}`;
+  const preferredCategory = inferCategoryFromText(titleSignal);
+  const styles = genderStyles(target);
+  return styles.find((style) => style.category === preferredCategory)
+    || styles.find((style) => style.dailySurprise)
+    || defaultStyleForGender(target);
+}
+
+function inferCategoryFromText(value = "") {
+  const text = String(value).toLowerCase();
+  if (/office|work|meeting|formal|interview/.test(text)) return text.includes("formal") || text.includes("interview") ? "Formal" : "Office";
+  if (/date|dinner|anniversary|party/.test(text)) return "Date";
+  if (/sport|gym|active|run|walk/.test(text)) return "Sport Wear";
+  if (/ethnic|festive|kurta|saree|wedding|celebration|function/.test(text)) return "Ethnic";
+  if (/travel|airport|trip|resort|vacay|holiday/.test(text)) return text.includes("resort") || text.includes("vacay") ? "Resort" : "Travel";
+  return "";
+}
+
+function applyRecommendedLane(gender, options = {}) {
+  const nextGender = normalizedGender(gender);
+  const nextStyle = options.style || uploadStyleForGender(nextGender, options.meta || {});
+  state.selectedGender = nextGender;
+  state.detectedGender = nextGender;
+  state.selectedLookbookStyleId = nextStyle.id;
+  syncLookbookStyleInternals(nextStyle);
+  const nextProduct = suggestedProductsForStyle(nextStyle)[0] || defaultProductForGender(nextGender);
+  state.selectedId = nextProduct.id;
+  state.renderedId = previewProductId;
+  state.renderStatus = state.uploadConfirmed ? "selected" : "ready";
+  state.activeCollection = nextStyle.tags[0] || (nextGender === "female" ? "Women Topwear" : "Men Topwear");
+}
+
+async function analyzeUploadedImage(meta = {}) {
+  if (!state.uploadedPhoto) return;
+  const analysisToken = Date.now();
+  state.latestAnalysisToken = analysisToken;
+  state.autoSuggestStatus = "reading";
+  state.autoSuggestNote = "Reading the image for the best catalogue lane, occasion and outfit direction.";
+  render();
+
+  try {
+    if (window.location.protocol === "file:") {
+      throw new Error("Local server analysis unavailable in file preview");
+    }
+    const imagePayload = state.uploadedPhoto.startsWith("data:image/")
+      ? { imageDataUrl: state.uploadedPhoto }
+      : { imagePath: state.uploadSourcePath || state.uploadedPhoto };
+    const response = await fetch("/api/analyze-upload-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...imagePayload,
+        title: state.uploadedPhotoTitle,
+        meta: state.uploadedPhotoMeta,
+        fallbackGender: state.selectedGender,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Style analysis failed");
+    if (state.latestAnalysisToken !== analysisToken) return;
+    const nextGender = normalizedGender(data.recommendedGenderLane || data.genderLane || state.selectedGender);
+    const preferredCategory = data.preferredCategory || inferCategoryFromText(`${data.occasion || ""} ${(data.tags || []).join(" ")}`);
+    const nextStyle = genderStyles(nextGender).find((style) => style.category === preferredCategory) || uploadStyleForGender(nextGender, meta);
+    applyRecommendedLane(nextGender, { style: nextStyle, meta });
+    state.autoSuggestStatus = "ready";
+    state.autoSuggestNote = data.note || `${genderLabel(nextGender)} catalogue lane selected from the image read. Switch anytime.`;
+    render();
+  } catch {
+    if (state.latestAnalysisToken !== analysisToken) return;
+    state.autoSuggestStatus = "ready";
+    state.autoSuggestNote = `${genderLabel(state.selectedGender)} catalogue lane selected from gallery and upload signals. Switch anytime.`;
+    render();
+  }
+}
+
 function confirmUploadedImage(image, meta = {}) {
+  const detectedLane = uploadGenderLane(meta);
   state.uploadedPhoto = image;
   state.uploadSourcePath = meta.sourcePath || (String(image).startsWith("data:image/") ? "" : image);
   state.uploadedPhotoTitle = meta.title || "Uploaded Image";
   state.uploadedPhotoMeta = meta.meta || "Device Gallery";
   state.guardrailStatus = meta.guardrailStatus || "ready";
-  state.renderedId = previewProductId;
-  state.renderStatus = state.selectedId === previewProductId ? "ready" : "selected";
+  state.detectedGender = detectedLane;
+  applyRecommendedLane(detectedLane, { meta });
   state.tryOnImageUrl = "";
   state.tryOnImageUri = "";
   state.tryOnMode = "";
@@ -840,12 +1743,16 @@ function confirmUploadedImage(image, meta = {}) {
   state.tryOnError = "";
   clearVideoState();
   state.uploadConfirmed = true;
+  state.renderStatus = "selected";
   state.galleryOpen = false;
   state.activeCollection = selectedLookbookStyle().tags[0] || "Men Topwear";
   state.searchQuery = "";
+  state.autoSuggestStatus = "ready";
+  state.autoSuggestNote = `${genderLabel(detectedLane)} catalogue lane selected. I will refine the read if AI analysis is available.`;
   render();
   flash("Senior Stylist suggestions ready");
   resetScroll();
+  analyzeUploadedImage(meta);
 }
 
 function selectGalleryImage(id) {
@@ -855,6 +1762,7 @@ function selectGalleryImage(id) {
     meta: galleryImage.meta,
     sourcePath: galleryImage.image,
     guardrailStatus: galleryImage.guardrailStatus,
+    gender: galleryImage.gender,
   });
 }
 
@@ -877,6 +1785,13 @@ function selectProduct(id) {
   const next = products.find((product) => product.id === id);
   if (!next) return;
   if (state.route !== "pdp") state.previousRoute = state.route;
+  const nextGender = normalizedGender(next.gender);
+  if (state.selectedGender !== nextGender) {
+    state.selectedGender = nextGender;
+    const nextStyle = genderStyles(nextGender).find((style) => (style.productIds || []).includes(next.id)) || defaultStyleForGender(nextGender);
+    state.selectedLookbookStyleId = nextStyle.id;
+    syncLookbookStyleInternals(nextStyle);
+  }
   state.selectedId = id;
   state.selectedSize = "";
   clearTryOnOutput();
@@ -951,6 +1866,7 @@ async function renderOnModel() {
         productImagePath: product.image,
         fallbackImagePath: product.tryonImage,
         lookbookStyle: style,
+        gender: state.selectedGender,
         environment,
         cameraMove,
         prompt: reverseLookbookPrompt(product, environment, cameraMove, style),
@@ -1146,7 +2062,10 @@ function saveProductForLookbook() {
 }
 
 function tryAnotherLook() {
-  state.selectedId = previewProductId;
+  const nextProduct = state.uploadConfirmed
+    ? suggestedProductsForStyle()[0] || defaultProductForGender(state.selectedGender)
+    : defaultProductForGender(state.selectedGender);
+  state.selectedId = nextProduct.id;
   state.renderedId = previewProductId;
   state.activeCollection = selectedLookbookStyle().tags[0] || "Men Topwear";
   state.searchQuery = "";
@@ -1168,24 +2087,7 @@ function pickSize(size) {
 }
 
 function surpriseLook() {
-  const style = curatedLookbookStyles[Math.floor(Math.random() * curatedLookbookStyles.length)] || curatedLookbookStyles[0];
-  state.selectedLookbookStyleId = style.id;
-  syncLookbookStyleInternals(style);
-  state.activeCollection = style.tags[0] || "Men Topwear";
-  const options = suggestedProductsForStyle(style);
-  const product = options[Math.floor(Math.random() * options.length)] || options[0];
-  state.selectedId = product.id;
-  state.selectedSize = "";
-  clearTryOnOutput();
-  if (state.uploadConfirmed) {
-    state.route = "pdp";
-  } else {
-    state.route = "tryon";
-    state.galleryOpen = true;
-  }
-  render();
-  resetScroll();
-  flash(`${style.label} picked`);
+  surpriseMeForTheDay({ random: true });
 }
 
 function copyPromptToClipboard() {
@@ -1211,7 +2113,7 @@ function reverseLookbookPrompt(product, environment = selectedEnvironment(), cam
     `Camera director: ${cameraMove.label}. ${cameraMove.motion}. Framing: ${cameraMove.framing}. Beat: ${cameraMove.beat}.`,
     `Styling intent: ${product.drapeNote}`,
     `Journey: start with curiosity, reveal one tasteful surprise beat, then end with gratification: ${environment.gratification}.`,
-    "Keep an adult male full-body frame, realistic trouser coverage, consistent face/body identity, unchanged garment category, premium store catalogue lighting, and no distorted hands or text artifacts.",
+    `Keep an adult ${state.selectedGender} full-body frame, appropriate complete outfit coverage, consistent face/body identity, unchanged garment category, premium store catalogue lighting, and no distorted hands or text artifacts.`,
     "Do not imply guaranteed fit; show style, drape, colour, and occasion confidence only.",
   ].join(" ");
 }
@@ -1238,6 +2140,7 @@ async function generateLookbookVideo() {
     environment,
     cameraMove,
     lookbookStyle: style,
+    gender: state.selectedGender,
     product: {
       brand: product.brand,
       name: product.name,
@@ -1615,6 +2518,7 @@ function homeScreen() {
 
 function lookbookJourneySection() {
   const style = selectedLookbookStyle();
+  const previewStyles = genderStyles().slice(0, 5);
   return `
     <section class="lookbook-entry-section">
       <div class="lookbook-entry-card">
@@ -1626,16 +2530,22 @@ function lookbookJourneySection() {
           <span class="stylist-avatar">AI</span>
           <div>
             <h2>Good evening, Ashutosh</h2>
-            <p>I can read your image, choose the right store catalogue pieces, and build a personal lookbook for office, dates, casual plans, sport wear, ethnic moments and more.</p>
+            <p>I can read your uploaded image, recommend the right catalogue lane, and build a personal lookbook for office, dates, casual plans, sport wear, ethnic moments and more.</p>
           </div>
+        </div>
+        ${genderSwitch()}
+        <div class="lookbook-counts">
+          <span><b>${curatedStyleCounts.male}</b> male style ideas</span>
+          <span><b>${curatedStyleCounts.female}</b> female style ideas</span>
+          <span><b>${curatedStyleCounts.maleSurprises + curatedStyleCounts.femaleSurprises}</b> day surprises</span>
         </div>
         <div class="journey-steps">
           <span>Upload</span>
-          <span>Style Read</span>
+          <span>Auto Suggest</span>
           <span>Lookbook</span>
         </div>
         <div class="home-style-preview rail">
-          ${curatedLookbookStyles.slice(0, 5).map((item) => `
+          ${previewStyles.map((item) => `
             <button class="home-style-chip ${item.id === style.id ? "active" : ""}" data-style="${item.id}" style="--style-accent:${item.accent}">
               <span>${item.category}</span>
               <strong>${item.label}</strong>
@@ -1643,7 +2553,7 @@ function lookbookJourneySection() {
           `).join("")}
         </div>
         <button class="wide-dark" data-route="tryon" data-preserve-style="true">Start Virtual Draping</button>
-        <button class="wide-outline" data-action="surprise-look">Surprise Me</button>
+        <button class="wide-outline" data-action="surprise-look">Surprise Me For The Day</button>
       </div>
     </section>
   `;
@@ -1678,7 +2588,7 @@ function productCard(product) {
 function analystNudge(context, product = selectedProduct()) {
   const style = selectedLookbookStyle();
   const copy = {
-    discover: `I am reading catalogue PDPs against your ${style.label} brief. Pick a product and I will turn it into a draped lookbook result.`,
+    discover: `I am reading ${genderLabel().toLowerCase()} catalogue PDPs against your ${style.label} brief. Pick a product and I will turn it into a draped lookbook result.`,
     upload: `Start with a real image. I will check the upload guardrails, read the mood, and unlock curated styles before showing suggestions.`,
     lookbook: `Saved looks become your digital closet. Reopen any one, generate a clip, share it, cast it, or add it to bag.`,
   }[context] || `I am matching ${product.brand} with your ${style.label} edit so the result feels personal, useful and store-ready.`;
@@ -1708,6 +2618,7 @@ function stylistPanel(product, compact = false) {
       </div>
       <div class="stylist-metrics">
         <span><b>Base</b> ${state.uploadConfirmed ? "Uploaded avatar" : "Upload pending"}</span>
+        <span><b>Lane</b> ${genderLabel()} catalogue · ${genderStyles().length} edits</span>
         <span><b>Style</b> ${style.category} · ${style.occasion}</span>
         <span><b>Source</b> ${prePdpSuggestion ? "Suggested catalogue" : `${product.source || "Store Catalogue"} PDP`}</span>
       </div>
@@ -1742,16 +2653,60 @@ function guardrailPanel(compact = false) {
   `;
 }
 
+function genderSwitch() {
+  const detectedCopy = state.uploadConfirmed
+    ? `Auto read: ${genderLabel(state.detectedGender || state.selectedGender)} catalogue lane`
+    : "Auto read unlocks after image upload";
+  return `
+    <div class="gender-switch-wrap">
+      <div class="gender-switch" role="group" aria-label="Catalogue lane">
+        <button class="${state.selectedGender === "male" ? "active" : ""}" data-gender="male">Male</button>
+        <button class="${state.selectedGender === "female" ? "active" : ""}" data-gender="female">Female</button>
+      </div>
+      <span>${detectedCopy}</span>
+    </div>
+  `;
+}
+
+function autoSuggestPanel() {
+  const style = selectedLookbookStyle();
+  const dailyCount = dailySurpriseStylesForGender(state.selectedGender).length;
+  const status = state.autoSuggestStatus === "reading" ? "Reading image" : "Ready";
+  return `
+    <section class="auto-suggest-panel">
+      <div class="auto-suggest-head">
+        <div>
+          <span>Auto Suggest</span>
+          <h2>${genderLabel(state.selectedGender)} Lookbook Lane</h2>
+        </div>
+        <strong>${status}</strong>
+      </div>
+      <p>${state.autoSuggestNote || `${style.label} is selected. I can move you straight into the strongest PDP look.`}</p>
+      ${genderSwitch()}
+      <div class="auto-suggest-metrics">
+        <span><b>${genderStyles().length}</b> curated looks</span>
+        <span><b>${dailyCount}</b> daily surprises</span>
+        <span><b>${suggestedProductsForStyle(style).length}</b> PDP anchors</span>
+      </div>
+      <div class="auto-suggest-actions">
+        <button class="wide-dark" data-action="auto-suggest">Auto Suggest Outfit</button>
+        <button class="wide-outline" data-action="daily-surprise">Surprise Me For The Day</button>
+      </div>
+    </section>
+  `;
+}
+
 function lookbookStudio(product, mode = "") {
   const style = selectedLookbookStyle();
+  const styles = genderStyles();
   return `
     <section class="lookbook-studio ${mode}">
       <div class="lookbook-studio-heading">
         <div>
-          <span>Curated Lookbook</span>
+          <span>Curated Lookbook · ${styles.length} ${genderLabel()} styles</span>
           <h2>${style.label}</h2>
         </div>
-        <button data-action="surprise-look">Surprise</button>
+        <button data-action="daily-surprise">Surprise</button>
       </div>
       <p>${style.story}</p>
       <div class="style-story">
@@ -1760,7 +2715,7 @@ function lookbookStudio(product, mode = "") {
         <p>${style.reason}</p>
       </div>
       <div class="lookbook-style-rail rail">
-        ${curatedLookbookStyles.map((item) => `
+        ${styles.map((item) => `
           <button class="lookbook-style-card ${item.id === style.id ? "active" : ""}" data-style="${item.id}" style="--style-accent:${item.accent}">
             <span>${item.category}</span>
             <strong>${item.label}</strong>
@@ -1876,20 +2831,24 @@ function videoStatusPanel(product) {
 }
 
 function discoverScreen() {
-  const chips = ["All Products", "Men Topwear", "Bottomwear", "Winter Collection", "Smart Casual"];
+  const chips = state.selectedGender === "female"
+    ? ["All Products", "Women Topwear", "Ethnic", "Celebration", "Office", "Casual", "Travel"]
+    : ["All Products", "Men Topwear", "Bottomwear", "Winter Collection", "Smart Casual", "Sport Wear", "Office"];
   const style = selectedLookbookStyle();
   const list = state.uploadConfirmed ? suggestedProductsForStyle(style) : filteredProducts();
+  const styles = genderStyles();
   return `
     <main class="page proto-screen" data-screen="discover">
       <div class="proto-header">
         <h1>${state.uploadConfirmed ? "Suggested Catalogue Products" : "Discover"}</h1>
         <p>${state.uploadConfirmed ? `${style.label}: ${style.reason}` : `${escapeHTML(state.activeCollection)} from the in-store catalogue. Open a PDP, then drape it on the uploaded image.`}</p>
       </div>
+      ${genderSwitch()}
       ${state.activeOffer ? `<div class="state-banner">${state.activeOffer}</div>` : ""}
       ${analystNudge("discover")}
       ${state.uploadConfirmed ? `
         <div class="lookbook-style-rail discover-style-rail rail">
-          ${curatedLookbookStyles.map((item) => `
+          ${styles.map((item) => `
             <button class="lookbook-style-card ${item.id === style.id ? "active" : ""}" data-style="${item.id}" style="--style-accent:${item.accent}">
               <span>${item.category}</span>
               <strong>${item.label}</strong>
@@ -1924,7 +2883,7 @@ function tryOnScreen() {
       ? suggestedProducts[0] || product
       : product;
   const previewAlt = showingRenderedLook
-    ? `${displayProduct.brand} ${displayProduct.name} rendered on male model`
+    ? `${displayProduct.brand} ${displayProduct.name} rendered on uploaded model`
     : `${state.uploadedPhotoTitle || "Uploaded user image"} preview`;
   const mirrorClass = state.renderStatus === "rendering" ? "rendering" : state.renderStatus === "rendered" ? "rendered" : state.renderStatus === "preview" ? "preview" : "";
   return `
@@ -1965,13 +2924,14 @@ function tryOnScreen() {
           <strong>${state.uploadedPhotoTitle || "Uploaded Image"}</strong>
           <p>${state.guardrailStatus === "partial" ? "Lifestyle image accepted. A clean full-body front pose will improve AI drape accuracy." : "Image accepted. I am matching your avatar to curated store catalogue edits."}</p>
         </section>
+        ${autoSuggestPanel()}
         ${stylistPanel(guidedProduct, true)}
       ` : `${analystNudge("upload")}${guardrailPanel()}`}
       ${state.uploadConfirmed ? lookbookStudio(guidedProduct, "compact") : ""}
       ${resultActionPanel(displayProduct)}
       ${state.uploadConfirmed ? `
         <div class="proto-header ready-products">
-          <h1>Suggested Products For ${style.category}</h1>
+          <h1>Suggested Products Based On Upload</h1>
           <p>${style.reason}</p>
         </div>
         <div class="product-grid">
@@ -2007,7 +2967,7 @@ function gallerySheet() {
           ${visibleImages.map((item) => `
             <button class="gallery-tile" data-gallery-image="${item.id}" aria-label="Select ${item.title}">
               <img src="${item.image}" alt="${item.title}" />
-              <span>${item.title}</span>
+              <span>${item.title}<em>${genderLabel(item.gender)} lane</em></span>
             </button>
           `).join("")}
           <label class="gallery-upload-tile" aria-label="Choose image from device">
@@ -2096,7 +3056,7 @@ function bagScreen() {
     <main class="page proto-screen" data-screen="bag">
       <div class="proto-header">
         <h1>Bag</h1>
-        <p>${state.bagItems.length} rendered looks added.</p>
+        <p>${state.bagItems.length} catalogue ${state.bagItems.length === 1 ? "look" : "looks"} added.</p>
       </div>
       ${state.bagItems.length ? `
         <div class="list-stack">
@@ -2124,13 +3084,15 @@ function bagScreen() {
 
 function lookbookScreen() {
   const latest = latestLookbookItem();
+  const guideProduct = latest ? products.find((product) => product.id === latest.productId) || selectedProduct() : selectedProduct();
   return `
     <main class="page proto-screen" data-screen="lookbook">
       <div class="proto-header">
         <h1>Lookbook</h1>
-        <p>Saved virtual draping looks from the TRENDS store catalogue.</p>
+        <p>${curatedStyleCounts.male + curatedStyleCounts.female} curated style ideas and ${curatedStyleCounts.maleSurprises + curatedStyleCounts.femaleSurprises} daily surprises from the TRENDS store catalogue.</p>
       </div>
-      ${analystNudge("lookbook", latest ? renderedProduct() : selectedProduct())}
+      ${analystNudge("lookbook", guideProduct)}
+      ${lookbookStudio(guideProduct, "compact")}
       ${latest ? `
         <section class="lookbook-hero">
           <div class="lookbook-hero-image">
@@ -2217,7 +3179,7 @@ function searchScreen() {
         <p>Find in-store catalogue products, brands, offers, and draping-ready looks.</p>
       </div>
       <div class="search-panel">
-        <input data-search-input value="${escapeHTML(state.searchQuery)}" placeholder="Search men's products" />
+        <input data-search-input value="${escapeHTML(state.searchQuery)}" placeholder="Search ${genderLabel().toLowerCase()} products" />
         <button data-action="search-submit">Search</button>
       </div>
       <div class="product-grid">
@@ -2358,6 +3320,14 @@ function bindEvents() {
         surpriseLook();
         return;
       }
+      if (action === "auto-suggest") {
+        autoSuggestLook();
+        return;
+      }
+      if (action === "daily-surprise") {
+        surpriseMeForTheDay();
+        return;
+      }
       if (action === "copy-prompt") {
         copyPromptToClipboard();
         return;
@@ -2493,6 +3463,13 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll("[data-gender]").forEach((el) => {
+    el.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setCatalogueLane(el.dataset.gender);
+    });
+  });
+
   document.querySelectorAll("[data-gallery-image]").forEach((el) => {
     el.addEventListener("click", () => selectGalleryImage(el.dataset.galleryImage));
   });
@@ -2520,6 +3497,7 @@ function bindEvents() {
           title: file.name.replace(/\.[^.]+$/, "") || "Uploaded Image",
           meta: "Device Gallery",
           guardrailStatus,
+          gender: inferGenderLaneFromText(file.name),
         });
       };
       reader.onerror = () => flash("Image upload failed");

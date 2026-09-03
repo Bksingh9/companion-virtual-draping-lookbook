@@ -15,11 +15,13 @@ const config = {
   location: process.env.GOOGLE_CLOUD_LOCATION || "us-central1",
   modelId: process.env.VERTEX_MODEL_ID || "veo-3.1-fast-generate-001",
   tryOnModelId: process.env.VERTEX_TRYON_MODEL_ID || "virtual-try-on-001",
+  analysisModelId: process.env.VERTEX_ANALYSIS_MODEL_ID || "gemini-2.5-flash",
   outputGcsUri: process.env.VERTEX_OUTPUT_GCS_URI || "",
   tryOnOutputGcsUri: process.env.VERTEX_TRYON_OUTPUT_GCS_URI || process.env.VERTEX_OUTPUT_GCS_URI || "",
   resolution: process.env.VERTEX_VIDEO_RESOLUTION || "720p",
   enableVideo: process.env.VERTEX_ENABLE_VIDEO === "true",
   enableTryOn: process.env.VERTEX_ENABLE_TRYON !== "false",
+  enableAnalysis: process.env.VERTEX_ENABLE_ANALYSIS !== "false",
   maxWaitMs: Number(process.env.VERTEX_VIDEO_MAX_WAIT_MS || 150000),
 };
 
@@ -215,21 +217,144 @@ function composeProductDescription(product = {}) {
   ].filter(Boolean).join(", ");
 }
 
+function inferLaneFromText(value = "", fallbackGender = "male") {
+  const text = String(value).toLowerCase();
+  if (/\b(female|woman|women|girl|lady|ladies|her|she|kurta|saree|dress|ethnic|avaasa)\b/.test(text)) return "female";
+  if (/\b(male|man|men|boy|him|he|shirt|tee|polo|bomber|trouser|teamspirit|netplay|performax)\b/.test(text)) return "male";
+  return fallbackGender === "female" ? "female" : "male";
+}
+
+function inferCategoryFromText(value = "") {
+  const text = String(value).toLowerCase();
+  if (/office|work|meeting|presentation/.test(text)) return "Office";
+  if (/formal|interview|event/.test(text)) return "Formal";
+  if (/date|dinner|anniversary|party/.test(text)) return "Date";
+  if (/sport|gym|active|run|walk/.test(text)) return "Sport Wear";
+  if (/ethnic|festive|kurta|saree|wedding|celebration|function/.test(text)) return "Ethnic";
+  if (/resort|vacay|holiday/.test(text)) return "Resort";
+  if (/travel|airport|trip|commute/.test(text)) return "Travel";
+  return "";
+}
+
+function fallbackUploadAnalysis(body = {}) {
+  const text = `${body.title || ""} ${body.meta || ""} ${body.fallbackGender || ""}`;
+  const lane = inferLaneFromText(text, body.fallbackGender);
+  const preferredCategory = inferCategoryFromText(text) || (lane === "female" ? "Ethnic" : "Live Moment");
+  return {
+    mode: "local-fallback",
+    recommendedGenderLane: lane,
+    preferredCategory,
+    confidence: 0.58,
+    tags: [preferredCategory, lane === "female" ? "Women Topwear" : "Men Topwear"],
+    note: `${lane === "female" ? "Female" : "Male"} catalogue lane selected from upload signals. Switch anytime if the styling lane is not right.`,
+  };
+}
+
+function parseJsonish(text = "") {
+  const clean = String(text).replace(/```json|```/g, "").trim();
+  try {
+    return JSON.parse(clean);
+  } catch {
+    const match = clean.match(/\{[\s\S]*\}/);
+    if (!match) return {};
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return {};
+    }
+  }
+}
+
+function normalizeUploadAnalysis(raw = {}, fallback = fallbackUploadAnalysis()) {
+  const lane = raw.recommendedGenderLane === "female" || raw.genderLane === "female"
+    ? "female"
+    : raw.recommendedGenderLane === "male" || raw.genderLane === "male"
+      ? "male"
+      : fallback.recommendedGenderLane;
+  const category = inferCategoryFromText(raw.preferredCategory || raw.occasion || (raw.tags || []).join(" ")) || fallback.preferredCategory;
+  const confidence = Number(raw.confidence);
+  return {
+    mode: raw.mode || "vertex-analysis",
+    recommendedGenderLane: lane,
+    preferredCategory: category,
+    occasion: raw.occasion || "",
+    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence > 1 ? confidence / 100 : confidence)) : fallback.confidence,
+    tags: Array.isArray(raw.tags) ? raw.tags.slice(0, 6) : fallback.tags,
+    note: raw.note || fallback.note,
+  };
+}
+
+function extractGeminiText(response = {}) {
+  const parts = response?.candidates?.[0]?.content?.parts || [];
+  return parts.map((part) => part.text || "").join("\n").trim();
+}
+
+async function analyzeUploadImage(body) {
+  const fallback = fallbackUploadAnalysis(body);
+  if (!config.enableAnalysis) return fallback;
+
+  try {
+    await loadServiceAccount();
+    const image = await imagePayloadFromRequest(body);
+    const prompt = [
+      "You are the TRENDS Companion Senior Stylist image analysis layer for a retail prototype.",
+      "Recommend the best catalogue lane for styling the uploaded shopper image: male or female.",
+      "This is a catalogue-routing recommendation only, not a claim about gender identity.",
+      "Also choose one preferredCategory from: Live Moment, Office, Date, Casual, Sport Wear, Ethnic, Resort, Formal, Travel, Celebration.",
+      "Respect guardrails: adult shopper only, no fit guarantee, no body judgments, no sensitive identity claims.",
+      "Return compact JSON only with keys: recommendedGenderLane, preferredCategory, occasion, confidence, tags, note.",
+    ].join(" ");
+    const response = await requestGoogleJson(
+      publisherModelUrl(config.analysisModelId, "generateContent"),
+      {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: image.mimeType,
+                  data: image.bytesBase64Encoded,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.15,
+          maxOutputTokens: 512,
+        },
+      },
+    );
+    const raw = parseJsonish(extractGeminiText(response));
+    return normalizeUploadAnalysis(raw, fallback);
+  } catch (error) {
+    return {
+      ...fallback,
+      message: error.message,
+    };
+  }
+}
+
 function composeTryOnPrompt(body) {
   const product = body.product || {};
   const environment = body.environment || {};
   const cameraMove = body.cameraMove || {};
   const style = body.lookbookStyle || {};
   const basePrompt = body.prompt || "";
+  const gender = body.gender === "female" ? "female" : body.gender === "male" ? "male" : "adult";
+  const productFallback = body.gender === "female" ? "selected womenswear product" : "selected menswear product";
   return [
-    "Create a premium virtual try-on image for an adult male shopper inside the TRENDS Companion app.",
+    `Create a premium virtual try-on image for an adult ${gender} shopper inside the TRENDS Companion app.`,
     "Use the person image as the identity, face, body, pose, and real-life avatar anchor.",
-    `Drape the selected PDP catalogue product: ${composeProductDescription(product) || "selected menswear product"}.`,
+    `Drape the selected PDP catalogue product: ${composeProductDescription(product) || productFallback}.`,
     `Stylist intent: ${product.drapeNote || "make the product feel polished, wearable, and store-ready"}.`,
     `Curated lookbook edit: ${style.label || "Store Spotlight"} for ${style.occasion || "a store visit"}. ${style.reason || ""}`,
     `Journey context: ${environment.label || "Store Spotlight"} for ${environment.occasion || "in-store reveal"}; premium beige and black Companion retail mood.`,
     `Camera expectation for later video: ${cameraMove.label || "Orbit Reveal"}; ${cameraMove.framing || "vertical 9:16 full body"}.`,
-    "Keep realistic proportions, natural hands, real trouser coverage, clean garment boundaries, and accurate product colour/fabric.",
+    "Keep realistic proportions, natural hands, appropriate complete outfit coverage, clean garment boundaries, and accurate product colour/fabric.",
     "Do not create underwear-only output, distorted fingers, warped face, logos, floating UI text, or fit-guarantee claims.",
     basePrompt,
   ].filter(Boolean).join(" ");
@@ -495,10 +620,12 @@ async function vertexStatus() {
     location: config.location,
     modelId: config.modelId,
     tryOnModelId: config.tryOnModelId,
+    analysisModelId: config.analysisModelId,
     outputGcsUriConfigured: Boolean(config.outputGcsUri),
     tryOnOutputGcsUriConfigured: Boolean(config.tryOnOutputGcsUri),
     videoEnabled: config.enableVideo,
     tryOnEnabled: config.enableTryOn,
+    analysisEnabled: config.enableAnalysis,
   };
 }
 
@@ -542,6 +669,12 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && req.url?.startsWith("/api/generate-tryon-image")) {
       const body = await readRequestJson(req);
       sendJson(res, 200, await generateVertexTryOnImage(body));
+      return;
+    }
+
+    if (req.method === "POST" && req.url?.startsWith("/api/analyze-upload-image")) {
+      const body = await readRequestJson(req);
+      sendJson(res, 200, await analyzeUploadImage(body));
       return;
     }
 

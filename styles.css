@@ -1525,6 +1525,79 @@ button {
   text-align: center;
 }
 
+.gender-switch-wrap {
+  width: 343px;
+  margin: 0 16px 12px;
+  display: grid;
+  gap: 7px;
+}
+
+.lookbook-entry-card .gender-switch-wrap,
+.auto-suggest-panel .gender-switch-wrap {
+  width: auto;
+  margin: 0;
+}
+
+.gender-switch {
+  height: 42px;
+  padding: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  border: 1px solid #e2d5bd;
+  border-radius: 8px;
+  background: #f8f1e5;
+}
+
+.gender-switch button {
+  border-radius: 6px;
+  background: transparent;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 900;
+}
+
+.gender-switch button.active {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.gender-switch-wrap > span {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 800;
+}
+
+.lookbook-counts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.lookbook-counts span {
+  min-height: 48px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--body);
+  font-size: 9px;
+  line-height: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.lookbook-counts b {
+  color: var(--primary);
+  font-size: 17px;
+  line-height: 20px;
+  font-weight: 900;
+}
+
 .analyst-nudge {
   width: 343px;
   margin: 0 16px 16px;
@@ -2279,6 +2352,98 @@ button {
   margin: 12px 0 0;
   border: 0;
   background: rgba(255, 255, 255, 0.64);
+}
+
+.auto-suggest-panel {
+  width: 343px;
+  margin: 16px;
+  padding: 14px;
+  border: 1px solid #dfd0b7;
+  border-radius: 8px;
+  background: #fffaf1;
+  box-shadow: 0 12px 26px rgba(80, 58, 32, 0.08);
+}
+
+.auto-suggest-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.auto-suggest-head span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.auto-suggest-head h2 {
+  margin: 3px 0 0;
+  color: var(--primary);
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 900;
+}
+
+.auto-suggest-head strong {
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 28px;
+  padding: 6px 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.auto-suggest-panel > p {
+  margin: 9px 0 12px;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.auto-suggest-metrics {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.auto-suggest-metrics span {
+  min-height: 44px;
+  padding: 7px 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--body);
+  font-size: 9px;
+  line-height: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.auto-suggest-metrics b {
+  color: var(--primary);
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: 900;
+}
+
+.auto-suggest-actions {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
 }
 
 .guardrail-heading strong {
@@ -3158,7 +3323,7 @@ button {
   left: 4px;
   right: 4px;
   bottom: 4px;
-  min-height: 20px;
+  min-height: 31px;
   padding: 4px 5px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.88);
@@ -3167,6 +3332,17 @@ button {
   line-height: 10px;
   font-weight: 900;
   text-align: center;
+}
+
+.gallery-tile span em {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 9px;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .gallery-upload-tile span,
