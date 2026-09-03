@@ -47,7 +47,56 @@ const app = {
 const sandbox = {
   clearTimeout,
   console,
-  fetch: async () => ({ ok: false, json: async () => ({ error: "qa fallback" }) }),
+  fetch: async (url, options = {}) => {
+    const path = String(url);
+    if (path.includes("/api/analyze-upload-image")) {
+      const body = JSON.parse(options.body || "{}");
+      const gender = /female|women|avaasa|ethnic/i.test(`${body.title || ""} ${body.meta || ""} ${body.requestedGenderLane || ""}`)
+        ? "female"
+        : "male";
+      const category = gender === "female" ? "Ethnic" : "Casual";
+      return {
+        ok: true,
+        json: async () => ({
+          mode: "vertex-analysis",
+          recommendedGenderLane: gender,
+          preferredCategory: category,
+          confidence: 0.91,
+          tags: [category, gender === "female" ? "Women Topwear" : "Men Topwear"],
+          note: `Vertex analysis selected the ${gender} ${category.toLowerCase()} catalogue lane.`,
+        }),
+      };
+    }
+    if (path.includes("/api/generate-tryon-image")) {
+      return {
+        ok: true,
+        json: async () => ({
+          mode: "vertex-try-on",
+          status: "done",
+          imageDataUrl: "",
+          imageUrl: "/generated-images/qa-lookbook.png",
+          imagePath: "/generated-images/qa-lookbook.png",
+          imageUri: "",
+          message: "AI virtual draping image generated.",
+        }),
+      };
+    }
+    if (path.includes("/api/generate-lookbook-video")) {
+      return {
+        ok: true,
+        json: async () => ({
+          mode: "vertex",
+          status: "done",
+          videoUrl: "/generated-videos/qa-lookbook.mp4",
+          videoUri: "/generated-videos/qa-lookbook.mp4",
+          operationName: "qa-operation",
+          message: "Vertex generated the lookbook video.",
+        }),
+      };
+    }
+    return { ok: false, json: async () => ({ error: "unexpected QA API path" }) };
+  },
+  URLSearchParams,
   FileReader: class {},
   Image: class {
     set src(_value) {
@@ -69,7 +118,11 @@ const sandbox = {
   setTimeout,
   window: {
     clearTimeout,
-    location: { protocol: "https:", hostname: "bksingh9.github.io" },
+    localStorage: {
+      getItem: () => "",
+      setItem: () => {},
+    },
+    location: { protocol: "https:", hostname: "bksingh9.github.io", search: "" },
     requestAnimationFrame: (fn) => setTimeout(fn, 0),
     scrollTo: () => {},
     setTimeout,
@@ -144,6 +197,7 @@ noOldNames();
 await qa.startProductDraping();
 assert(qa.state.route === "tryon", "Create Lookbook must return to result studio");
 assert(qa.state.renderStatus === "rendered", "Create Lookbook must produce result");
+assert(qa.state.tryOnMode === "vertex-try-on", "Create Lookbook must use Vertex VTO mode");
 assert(qa.state.lookbookItems.length === 1, "Create Lookbook must save a Lookbook item");
 assert(currentHtml.includes("saved to Lookbook"), "Result must say saved to Lookbook");
 assert(currentHtml.includes("Generate Lookbook Video"), "Result must include video action");
@@ -154,7 +208,9 @@ assert(clipboardText.includes("TRENDS AI Senior Stylist"), "Copy Prompt must wri
 qa.shareCurrentLook();
 assert(shareCalls === 1, "Share action must invoke share sheet");
 await qa.generateLookbookVideo();
-assert(qa.state.videoStatus === "demo", "Static flow must show video preview mode");
+assert(qa.state.videoStatus === "ready", "Lookbook video must become ready only from Veo");
+assert(qa.state.videoMode === "vertex", "Lookbook video must use Vertex mode");
+assert(qa.state.videoUrl.includes("/generated-videos/qa-lookbook.mp4"), "Lookbook video must expose a playable generated video URL");
 qa.castCurrentLook();
 assert(qa.state.route === "tv", "Cast TV must open TV preview");
 qa.addCurrentLook();
@@ -217,7 +273,8 @@ console.log(JSON.stringify({
     "suggested products",
     "PDP Create Lookbook",
     "saved Lookbook result",
-    "video preview",
+    "Vertex VTO contract",
+    "Veo video contract",
     "cast TV",
     "bag count",
     "profile",

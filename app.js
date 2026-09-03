@@ -1224,6 +1224,7 @@ const state = {
   guardrailStatus: "pending",
   tryOnImageUrl: "",
   tryOnImageUri: "",
+  tryOnImagePath: "",
   tryOnMode: "",
   tryOnMessage: "",
   tryOnError: "",
@@ -1234,6 +1235,7 @@ const state = {
   videoObjectUrl: "",
   videoMode: "",
   videoOperationName: "",
+  videoRequestToken: 0,
   videoMessage: "",
   activeCollection: "All Products",
   activeOffer: "",
@@ -1333,6 +1335,7 @@ function clearVideoState() {
   if (state.videoObjectUrl && window.URL && window.URL.revokeObjectURL) {
     window.URL.revokeObjectURL(state.videoObjectUrl);
   }
+  state.videoRequestToken = 0;
   state.videoStatus = "idle";
   state.videoUri = "";
   state.videoUrl = "";
@@ -1345,6 +1348,7 @@ function clearVideoState() {
 function clearTryOnOutput() {
   state.tryOnImageUrl = "";
   state.tryOnImageUri = "";
+  state.tryOnImagePath = "";
   state.tryOnMode = "";
   state.tryOnMessage = "";
   state.tryOnError = "";
@@ -1419,6 +1423,7 @@ function autoSuggestLook(options = {}) {
   state.renderStatus = "selected";
   state.tryOnImageUrl = "";
   state.tryOnImageUri = "";
+  state.tryOnImagePath = "";
   state.tryOnMode = "";
   state.tryOnMessage = "";
   state.tryOnError = "";
@@ -1517,9 +1522,47 @@ function escapeHTML(value) {
     .replace(/"/g, "&quot;");
 }
 
-function isStaticPrototypeHost() {
-  const search = String(window.location.search || "");
-  return window.location.protocol === "file:" || window.location.hostname.endsWith("github.io") || search.includes("qa_static=1");
+function configuredApiBase() {
+  const params = new URLSearchParams(String(window.location.search || ""));
+  const queryBase = params.get("apiBase");
+  if (queryBase) {
+    try {
+      window.localStorage?.setItem("companionApiBase", queryBase);
+    } catch {
+      // Ignore private browsing storage failures.
+    }
+    return queryBase.replace(/\/+$/, "");
+  }
+
+  try {
+    const savedBase = window.localStorage?.getItem("companionApiBase");
+    if (savedBase) return savedBase.replace(/\/+$/, "");
+  } catch {
+    // Ignore private browsing storage failures.
+  }
+
+  const hostname = String(window.location.hostname || "");
+  if (window.location.protocol === "file:" || hostname.endsWith("github.io")) {
+    return "http://127.0.0.1:4173";
+  }
+  return "";
+}
+
+function apiUrl(path) {
+  const base = configuredApiBase();
+  return base ? `${base}${path}` : path;
+}
+
+function apiAssetUrl(value) {
+  const src = String(value || "");
+  if (!src || /^(data:|blob:|https?:|gs:\/\/)/.test(src)) return src;
+  const base = configuredApiBase();
+  return base && src.startsWith("/") ? `${base}${src}` : src;
+}
+
+function realBackendRequiredMessage(action) {
+  const base = configuredApiBase();
+  return `${action} needs the live Vertex backend${base ? ` at ${base}` : ""}. Keep the Node server running with Google credentials, then try again.`;
 }
 
 function filteredProducts() {
@@ -1597,6 +1640,7 @@ function resetTryOnFlow(options = {}) {
   state.renderStatus = "ready";
   state.tryOnImageUrl = "";
   state.tryOnImageUri = "";
+  state.tryOnImagePath = "";
   state.tryOnMode = "";
   state.tryOnMessage = "";
   state.tryOnError = "";
@@ -1716,20 +1760,17 @@ async function analyzeUploadedImage(meta = {}) {
   render();
 
   try {
-    if (isStaticPrototypeHost()) {
-      throw new Error("AI analysis unavailable in static prototype");
-    }
     const imagePayload = state.uploadedPhoto.startsWith("data:image/")
       ? { imageDataUrl: state.uploadedPhoto }
       : { imagePath: state.uploadSourcePath || state.uploadedPhoto };
-    const response = await fetch("/api/analyze-upload-image", {
+    const response = await fetch(apiUrl("/api/analyze-upload-image"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...imagePayload,
         title: state.uploadedPhotoTitle,
         meta: state.uploadedPhotoMeta,
-        fallbackGender: state.selectedGender,
+        requestedGenderLane: state.selectedGender,
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -1745,10 +1786,10 @@ async function analyzeUploadedImage(meta = {}) {
     state.autoSuggestStatus = "ready";
     state.autoSuggestNote = data.note || `${genderLabel(nextGender)} catalogue lane unlocked from the image read. Choose a PDP to style next.`;
     render();
-  } catch {
+  } catch (error) {
     if (state.latestAnalysisToken !== analysisToken) return;
-    state.autoSuggestStatus = "ready";
-    state.autoSuggestNote = `${genderLabel(state.selectedGender)} catalogue lane unlocked from gallery and upload signals. Choose a suggested PDP to style next.`;
+    state.autoSuggestStatus = "error";
+    state.autoSuggestNote = `${genderLabel(state.selectedGender)} catalogue lane is available from upload guardrails, but real AI image analysis did not complete: ${error.message}`;
     render();
   }
 }
@@ -1764,6 +1805,7 @@ function confirmUploadedImage(image, meta = {}) {
   applyRecommendedLane(detectedLane, { meta, selectProduct: false });
   state.tryOnImageUrl = "";
   state.tryOnImageUri = "";
+  state.tryOnImagePath = "";
   state.tryOnMode = "";
   state.tryOnMessage = "";
   state.tryOnError = "";
@@ -1878,6 +1920,7 @@ async function renderOnModel() {
   state.renderStatus = "rendering";
   state.tryOnImageUrl = "";
   state.tryOnImageUri = "";
+  state.tryOnImagePath = "";
   state.tryOnMode = "";
   state.tryOnError = "";
   state.tryOnMessage = `Senior Stylist is styling ${product.brand} for ${style.label}`;
@@ -1885,19 +1928,15 @@ async function renderOnModel() {
   render();
   resetScroll();
   try {
-    if (isStaticPrototypeHost()) {
-      throw new Error("Static prototype uses the mapped catalogue look");
-    }
     const personPayload = state.uploadedPhoto && state.uploadedPhoto.startsWith("data:image/")
       ? { personImageDataUrl: state.uploadedPhoto }
       : { personImagePath: state.uploadSourcePath || state.uploadedPhoto };
-    const response = await fetch("/api/generate-tryon-image", {
+    const response = await fetch(apiUrl("/api/generate-tryon-image"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...personPayload,
         productImagePath: product.image,
-        fallbackImagePath: product.tryonImage,
         lookbookStyle: style,
         gender: state.selectedGender,
         environment,
@@ -1920,30 +1959,34 @@ async function renderOnModel() {
     if (!response.ok) {
       throw new Error(data.error || "Lookbook image generation failed");
     }
+    const generatedImage = data.imageDataUrl || data.imageUrl || "";
+    const displayImage = apiAssetUrl(generatedImage);
+    if (data.mode !== "vertex-try-on" || data.status !== "done" || !displayImage) {
+      throw new Error("Vertex VTO did not return a displayable generated image");
+    }
     if (state.tryOnRequestToken !== requestToken) return;
     state.renderedId = state.selectedId;
-    state.tryOnImageUrl = data.imageDataUrl || (/^https?:/.test(data.imageUrl || "") ? data.imageUrl : product.tryonImage);
+    state.tryOnImageUrl = displayImage;
     state.tryOnImageUri = data.imageUri || "";
-    state.tryOnMode = data.mode || "vertex-try-on";
-    state.tryOnMessage = data.imageDataUrl || data.imageUrl
-      ? "AI Lookbook image created and saved"
-      : "AI image stored remotely. Showing the mapped catalogue look in this prototype.";
+    state.tryOnImagePath = data.imagePath || (String(data.imageUrl || "").startsWith("/") ? data.imageUrl : "");
+    state.tryOnMode = "vertex-try-on";
+    state.tryOnMessage = "Real Vertex VTO Lookbook image created and saved";
     state.renderStatus = "rendered";
     saveCurrentLookToLookbook({ silent: true });
     render();
-    flash(data.mode === "mock" ? "Lookbook ready" : "AI Lookbook ready");
+    flash("AI Lookbook ready");
   } catch (error) {
     if (state.tryOnRequestToken !== requestToken) return;
-    state.renderedId = state.selectedId;
-    state.tryOnImageUrl = product.tryonImage;
+    state.renderedId = previewProductId;
+    state.tryOnImageUrl = "";
     state.tryOnImageUri = "";
-    state.tryOnMode = "premium-fallback";
+    state.tryOnImagePath = "";
+    state.tryOnMode = "";
     state.tryOnError = error.message;
-    state.tryOnMessage = "Using the mapped catalogue look while AI image generation is unavailable.";
-    state.renderStatus = "rendered";
-    saveCurrentLookToLookbook({ silent: true });
+    state.tryOnMessage = realBackendRequiredMessage("Real AI Lookbook image generation");
+    state.renderStatus = "selected";
     render();
-    flash("Lookbook saved");
+    flash("Real AI generation failed");
   }
 }
 
@@ -1976,6 +2019,7 @@ function saveCurrentLookToLookbook(options = {}) {
     mrp: product.mrp,
     off: product.off,
     image: currentRenderedImage(product),
+    imagePath: state.tryOnImagePath,
     productImage: product.image,
     styleMatch: product.styleMatch,
     lookbookStyleId: style.id,
@@ -2076,6 +2120,7 @@ function viewLookbookItem(id) {
   if (look.cameraId) state.selectedCameraId = look.cameraId;
   state.tryOnImageUrl = look.image;
   state.tryOnImageUri = "";
+  state.tryOnImagePath = look.imagePath || "";
   state.tryOnMode = "saved-lookbook";
   state.tryOnMessage = `${look.lookbookStyleLabel || "Lookbook"} look reopened`;
   clearVideoState();
@@ -2105,6 +2150,7 @@ function tryAnotherLook() {
   state.renderStatus = "ready";
   state.tryOnImageUrl = "";
   state.tryOnImageUri = "";
+  state.tryOnImagePath = "";
   state.tryOnMode = "";
   state.tryOnMessage = "";
   state.tryOnError = "";
@@ -2155,178 +2201,59 @@ function videoPrompt(product) {
   return reverseLookbookPrompt(product);
 }
 
-function browserVideoSupported() {
-  return (
-    typeof document !== "undefined" &&
-    typeof document.createElement === "function" &&
-    typeof window !== "undefined" &&
-    typeof window.MediaRecorder !== "undefined" &&
-    typeof HTMLCanvasElement !== "undefined" &&
-    Boolean(HTMLCanvasElement.prototype.captureStream)
-  );
-}
-
-function waitFrame(ms) {
+function waitForLookbookVideo(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function loadLookbookVideoImage(src) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Could not load Lookbook image for video"));
-    if (/^https?:\/\//.test(String(src || ""))) image.crossOrigin = "anonymous";
-    image.src = src;
-  });
-}
-
-function drawRoundedRect(ctx, x, y, width, height, radius) {
-  const safeRadius = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + safeRadius, y);
-  ctx.lineTo(x + width - safeRadius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
-  ctx.lineTo(x + width, y + height - safeRadius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
-  ctx.lineTo(x + safeRadius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
-  ctx.lineTo(x, y + safeRadius);
-  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
-  ctx.closePath();
-}
-
-function drawContainedImage(ctx, image, box, progress, cameraId) {
-  const baseScale = Math.min(box.width / image.naturalWidth, box.height / image.naturalHeight);
-  const direction = cameraId === "side-step-freeze" ? Math.sin(progress * Math.PI) * 10 : 0;
-  const zoom = cameraId === "hero-push-in" ? 1 + progress * 0.055 : 1 + Math.sin(progress * Math.PI) * 0.025;
-  const width = image.naturalWidth * baseScale * zoom;
-  const height = image.naturalHeight * baseScale * zoom;
-  const x = box.x + (box.width - width) / 2 + direction;
-  const y = box.y + (box.height - height) / 2 - (cameraId === "detail-to-full-body" ? (1 - progress) * 26 : 0);
-  ctx.save();
-  drawRoundedRect(ctx, box.x, box.y, box.width, box.height, 8);
-  ctx.clip();
-  ctx.fillStyle = "#e9e3da";
-  ctx.fillRect(box.x, box.y, box.width, box.height);
-  ctx.drawImage(image, x, y, width, height);
-  ctx.restore();
-}
-
-function drawLookbookVideoFrame(ctx, image, product, environment, cameraMove, style, progress) {
-  const width = ctx.canvas.width;
-  const height = ctx.canvas.height;
-  const accent = style.accent || "#d6a074";
-  ctx.fillStyle = "#f7efe1";
-  ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = accent;
-  ctx.globalAlpha = 0.16;
-  ctx.fillRect(0, 0, width, Math.round(height * 0.34));
-  ctx.globalAlpha = 1;
-
-  ctx.fillStyle = "#202020";
-  ctx.font = "900 18px Mulish, Arial, sans-serif";
-  ctx.fillText("AI LOOKBOOK", 24, 38);
-  ctx.fillStyle = "#666666";
-  ctx.font = "800 10px Mulish, Arial, sans-serif";
-  ctx.fillText("SENIOR STYLIST", 24, 54);
-
-  drawContainedImage(ctx, image, { x: 24, y: 72, width: 312, height: 438 }, progress, cameraMove.id);
-
-  ctx.fillStyle = "rgba(255,255,255,0.95)";
-  drawRoundedRect(ctx, 24, 524, 312, 86, 8);
-  ctx.fill();
-  ctx.fillStyle = "#202020";
-  ctx.font = "900 17px Mulish, Arial, sans-serif";
-  ctx.fillText(style.label.slice(0, 26), 42, 552);
-  ctx.font = "800 12px Mulish, Arial, sans-serif";
-  ctx.fillText(`${product.brand} - ${product.name}`.slice(0, 34), 42, 574);
-  ctx.fillStyle = "#666666";
-  ctx.font = "700 11px Mulish, Arial, sans-serif";
-  ctx.fillText(`${environment.label} - ${cameraMove.label}`.slice(0, 38), 42, 594);
-
-  ctx.fillStyle = "#ded3bf";
-  drawRoundedRect(ctx, 24, 622, 312, 6, 999);
-  ctx.fill();
-  ctx.fillStyle = "#202020";
-  drawRoundedRect(ctx, 24, 622, Math.max(18, 312 * progress), 6, 999);
-  ctx.fill();
-}
-
-async function createBrowserLookbookVideo(product, environment, cameraMove, style, renderedImage) {
-  if (!browserVideoSupported()) throw new Error("Browser video capture is unavailable");
-  const canvas = document.createElement("canvas");
-  canvas.width = 360;
-  canvas.height = 640;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas rendering is unavailable");
-  const image = await loadLookbookVideoImage(renderedImage);
-  const stream = canvas.captureStream(24);
-  const preferredType = window.MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-    ? "video/webm;codecs=vp9"
-    : window.MediaRecorder.isTypeSupported("video/webm")
-      ? "video/webm"
-      : "";
-  const chunks = [];
-  const recorder = new window.MediaRecorder(stream, {
-    ...(preferredType ? { mimeType: preferredType } : {}),
-    videoBitsPerSecond: 1800000,
-  });
-  const done = new Promise((resolve, reject) => {
-    recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size) chunks.push(event.data);
-    };
-    recorder.onerror = () => reject(new Error("Browser Lookbook video recording failed"));
-    recorder.onstop = resolve;
-  });
-  recorder.start(100);
-  const frames = 84;
-  for (let frame = 0; frame <= frames; frame += 1) {
-    const progress = frame / frames;
-    drawLookbookVideoFrame(ctx, image, product, environment, cameraMove, style, progress);
-    await waitFrame(1000 / 24);
+function applyVertexVideoResult(data) {
+  if (data.mode !== "vertex") {
+    throw new Error("Veo did not return a real Vertex response");
   }
-  recorder.stop();
-  await done;
-  const type = preferredType || chunks[0]?.type || "video/webm";
-  const blob = new Blob(chunks, { type });
-  if (!blob.size) throw new Error("Browser Lookbook video was empty");
-  return {
-    videoUrl: window.URL.createObjectURL(blob),
-    videoUri: `browser-lookbook-${product.id}-${Date.now()}.webm`,
-    message: "Playable Lookbook video created in this browser from the selected image, style and camera direction.",
-  };
+  const displayUrl = apiAssetUrl(data.videoUrl || (String(data.videoUri || "").startsWith("/") ? data.videoUri : ""));
+  if (data.status === "done" && !displayUrl) {
+    throw new Error("Veo returned no playable video URL for this prototype");
+  }
+  state.videoMode = "vertex";
+  state.videoOperationName = data.operationName || state.videoOperationName || "";
+  state.videoUri = data.videoUri || "";
+  state.videoUrl = displayUrl;
+  state.videoStatus = data.status === "done" ? "ready" : "running";
+  state.videoMessage = data.message || (state.videoStatus === "ready" ? "Vertex generated the lookbook video." : "Vertex video generation is still running.");
 }
 
-async function useBrowserLookbookVideo(product, environment, cameraMove, style, renderedImage, reason) {
-  try {
-    const clip = await createBrowserLookbookVideo(product, environment, cameraMove, style, renderedImage);
-    if (state.videoObjectUrl && window.URL && window.URL.revokeObjectURL) {
-      window.URL.revokeObjectURL(state.videoObjectUrl);
+async function pollLookbookVideo(operationName, requestToken) {
+  if (!operationName) return;
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    await waitForLookbookVideo(15000);
+    if (state.videoRequestToken !== requestToken || state.videoStatus !== "running") return;
+    try {
+      const response = await fetch(apiUrl("/api/vertex-video-status"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operationName }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Video status check failed");
+      applyVertexVideoResult(data);
+      render();
+      if (state.videoStatus === "ready") {
+        flash("Veo video ready");
+        return;
+      }
+    } catch (error) {
+      state.videoStatus = "error";
+      state.videoMode = "";
+      state.videoMessage = `${realBackendRequiredMessage("Real Veo Lookbook video generation")} ${error.message}`;
+      render();
+      flash("Veo video failed");
+      return;
     }
-    state.videoObjectUrl = clip.videoUrl;
-    state.videoUrl = clip.videoUrl;
-    state.videoUri = clip.videoUri;
-    state.videoMode = "browser-clip";
-    state.videoStatus = "ready";
-    state.videoMessage = reason ? `${clip.message} ${reason}` : clip.message;
-    state.videoOperationName = "";
-    render();
-    flash("Lookbook video ready");
-    return true;
-  } catch (error) {
-    if (state.videoObjectUrl && window.URL && window.URL.revokeObjectURL) {
-      window.URL.revokeObjectURL(state.videoObjectUrl);
-    }
-    state.videoStatus = "demo";
-    state.videoMode = "local";
-    state.videoUrl = "";
-    state.videoUri = "";
-    state.videoObjectUrl = "";
-    state.videoMessage = `${reason || "Video generation is unavailable."} ${error.message}`;
-    render();
-    flash("Video preview flow shown");
-    return false;
   }
+  if (state.videoRequestToken !== requestToken) return;
+  state.videoStatus = "error";
+  state.videoMode = "";
+  state.videoMessage = "Veo generation is still not finished after the prototype wait window. Try Generate Lookbook Video again to check a fresh operation.";
+  render();
 }
 
 async function generateLookbookVideo() {
@@ -2341,7 +2268,6 @@ async function generateLookbookVideo() {
   const renderedImage = currentRenderedImage(product);
   const payload = {
     productId: product.id,
-    imagePath: product.tryonImage,
     prompt: videoPrompt(product),
     referenceStyle: "Clean vertical full-body lookbook, using cues from Pro Earth Men, Vacay Resortwear, and creator-style AI camera control.",
     environment,
@@ -2363,9 +2289,15 @@ async function generateLookbookVideo() {
   if (renderedImage && renderedImage.startsWith("data:image/")) {
     payload.imageDataUrl = renderedImage;
     delete payload.imagePath;
+  } else if (state.tryOnImageUri && state.tryOnImageUri.startsWith("gs://")) {
+    payload.imageUri = state.tryOnImageUri;
+  } else if (state.tryOnImagePath) {
+    payload.imagePath = state.tryOnImagePath;
   } else if (renderedImage && !renderedImage.startsWith("gs://")) {
     payload.imagePath = renderedImage;
   }
+  const requestToken = Date.now();
+  state.videoRequestToken = requestToken;
   state.videoStatus = "generating";
   if (state.videoObjectUrl && window.URL && window.URL.revokeObjectURL) {
     window.URL.revokeObjectURL(state.videoObjectUrl);
@@ -2379,10 +2311,7 @@ async function generateLookbookVideo() {
   render();
 
   try {
-    if (isStaticPrototypeHost()) {
-      throw new Error("Static prototype shows the lookbook video preview flow");
-    }
-    const response = await fetch("/api/generate-lookbook-video", {
+    const response = await fetch(apiUrl("/api/generate-lookbook-video"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -2391,23 +2320,26 @@ async function generateLookbookVideo() {
     if (!response.ok) {
       throw new Error(data.error || "Video generation failed");
     }
-    if (data.mode === "mock" || data.status === "mock_ready") {
-      await useBrowserLookbookVideo(product, environment, cameraMove, style, renderedImage, data.message);
+    if (state.videoRequestToken !== requestToken) return;
+    applyVertexVideoResult(data);
+    render();
+    if (state.videoStatus === "ready") {
+      flash("Veo video ready");
       return;
     }
-    state.videoMode = data.mode || "vertex";
-    state.videoOperationName = data.operationName || "";
-    state.videoUri = data.videoUri || "";
-    state.videoUrl = data.videoUrl || "";
-    state.videoStatus = data.status === "done" || data.status === "mock_ready" ? "ready" : "running";
-    state.videoMessage = data.message || (state.videoUri ? "Video generated on Vertex" : "Video request submitted");
-    render();
-    flash(state.videoMode === "mock" ? "Video flow ready" : "Vertex video ready");
+    flash("Veo video started");
+    pollLookbookVideo(state.videoOperationName, requestToken);
   } catch (error) {
-    const reason = isStaticPrototypeHost()
-      ? "Static prototype generated this clip locally because private Vertex credentials cannot run on GitHub Pages."
-      : error.message;
-    await useBrowserLookbookVideo(product, environment, cameraMove, style, renderedImage, reason);
+    if (state.videoRequestToken !== requestToken) return;
+    state.videoStatus = "error";
+    state.videoMode = "";
+    state.videoUri = "";
+    state.videoUrl = "";
+    state.videoObjectUrl = "";
+    state.videoOperationName = "";
+    state.videoMessage = `${realBackendRequiredMessage("Real Veo Lookbook video generation")} ${error.message}`;
+    render();
+    flash("Veo video failed");
   }
 }
 
@@ -3003,7 +2935,11 @@ function genderSwitch() {
 function autoSuggestPanel() {
   const style = selectedLookbookStyle();
   const dailyCount = dailySurpriseStylesForGender(state.selectedGender).length;
-  const status = state.autoSuggestStatus === "reading" ? "Reading image" : "Ready";
+  const status = state.autoSuggestStatus === "reading"
+    ? "Reading image"
+    : state.autoSuggestStatus === "error"
+      ? "AI check needed"
+      : "Ready";
   return `
     <section class="auto-suggest-panel">
       <div class="auto-suggest-head">
@@ -3140,12 +3076,29 @@ function resultActionPanel(product) {
   `;
 }
 
+function generationErrorPanel() {
+  if (!state.tryOnError || state.renderStatus === "rendering" || state.renderStatus === "rendered") return "";
+  return `
+    <section class="generation-error">
+      <span>Real AI Required</span>
+      <strong>Lookbook generation did not complete</strong>
+      <p>${state.tryOnMessage || realBackendRequiredMessage("Real AI Lookbook image generation")}</p>
+      <em>${state.tryOnError}</em>
+      <div class="generation-error-actions">
+        <button class="wide-dark" data-action="render">Try Again</button>
+        <button class="wide-outline" data-action="copy-prompt">Copy Prompt</button>
+      </div>
+    </section>
+  `;
+}
+
 function videoStatusPanel(product) {
   const isBusy = state.videoStatus === "generating" || state.videoStatus === "running";
-  const statusLabel = isBusy ? "Generating" : state.videoStatus === "ready" ? "Video Ready" : "Preview Mode";
+  const isError = state.videoStatus === "error";
+  const statusLabel = isBusy ? "Generating" : state.videoStatus === "ready" ? "Video Ready" : isError ? "Video Error" : "Waiting";
   const style = selectedLookbookStyle();
   return `
-    <div class="video-panel ${isBusy ? "busy" : ""}">
+    <div class="video-panel ${isBusy ? "busy" : ""} ${isError ? "error" : ""}">
       <div class="video-thumb">
         ${state.videoUrl ? `
           <video src="${state.videoUrl}" playsinline muted loop controls></video>
@@ -3237,7 +3190,6 @@ function tryOnScreen() {
                   <em>${style.label} · ${product.brand}</em>
                 </div>
               ` : ""}
-              ${state.tryOnMode === "premium-fallback" && showingRenderedLook ? `<span class="render-fallback-badge">Mapped catalogue look</span>` : ""}
             </div>
           ` : `
             <div class="upload-zone">
@@ -3265,6 +3217,7 @@ function tryOnScreen() {
         ${stylistPanel(guidedProduct, true)}
       ` : `${analystNudge("upload")}${guardrailPanel()}`}
       ${state.uploadConfirmed ? lookbookStudio(guidedProduct, "compact") : ""}
+      ${generationErrorPanel()}
       ${resultActionPanel(displayProduct)}
       ${state.uploadConfirmed ? `
         <div class="proto-header ready-products">
@@ -3690,7 +3643,27 @@ function screen() {
   return homeScreen();
 }
 
+function syncQaState() {
+  window.__COMPANION_QA_STATE__ = {
+    route: state.route,
+    uploadConfirmed: state.uploadConfirmed,
+    selectedId: state.selectedId,
+    renderedId: state.renderedId,
+    renderStatus: state.renderStatus,
+    tryOnMode: state.tryOnMode,
+    tryOnImagePath: state.tryOnImagePath,
+    tryOnImageUrl: state.tryOnImageUrl,
+    tryOnError: state.tryOnError,
+    videoStatus: state.videoStatus,
+    videoMode: state.videoMode,
+    videoUrl: state.videoUrl,
+    videoUri: state.videoUri,
+    videoMessage: state.videoMessage,
+  };
+}
+
 function render() {
+  syncQaState();
   app.className = state.route === "home" ? "" : "feature-mode";
   app.innerHTML = `${topChrome()}${screen()}${bottomGroup()}${state.galleryOpen ? gallerySheet() : ""}${state.toast ? `<div class="toast">${state.toast}</div>` : ""}`;
   bindEvents();
@@ -3765,12 +3738,7 @@ function bindEvents() {
         return;
       }
       if (action === "buy-outfit") {
-        if (!state.uploadConfirmed) {
-          openGallery();
-          return;
-        }
-        state.renderStatus = "rendered";
-        addCurrentLook();
+        startProductDraping();
         return;
       }
       if (action === "start-draping") {

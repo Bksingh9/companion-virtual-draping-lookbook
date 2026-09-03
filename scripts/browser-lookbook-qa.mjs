@@ -18,7 +18,6 @@ if (!chromePath) {
 }
 
 const requestedUrl = process.env.QA_URL || "http://127.0.0.1:4173/";
-const realAiRequested = process.env.QA_REAL_AI === "1";
 const port = Number(process.env.QA_CDP_PORT || 9433 + Math.floor(Math.random() * 300));
 const profileDir = await mkdtemp(path.join(tmpdir(), "companion-chrome-qa-"));
 
@@ -36,10 +35,20 @@ async function fetchJson(url, options) {
   return response.json();
 }
 
+function apiBaseForAppUrl(url) {
+  const parsed = new URL(url);
+  const queryBase = parsed.searchParams.get("apiBase");
+  if (queryBase) return queryBase.replace(/\/+$/, "");
+  if (parsed.protocol === "file:" || parsed.hostname.endsWith("github.io")) return "http://127.0.0.1:4173";
+  if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed.origin;
+  return "";
+}
+
 async function maybeVertexStatus(url) {
-  if (!url.startsWith("http://") && !url.startsWith("https://")) return null;
+  const apiBase = apiBaseForAppUrl(url);
+  if (!apiBase) return null;
   try {
-    return await fetchJson(new URL("/api/vertex/status", url).href);
+    return await fetchJson(new URL("/api/vertex/status", apiBase).href);
   } catch {
     return null;
   }
@@ -48,12 +57,8 @@ async function maybeVertexStatus(url) {
 let appUrl = requestedUrl;
 let videoProbe = { ready: false, hasVideo: false, message: "" };
 const initialStatus = await maybeVertexStatus(requestedUrl);
-const expectRealTryOn = Boolean(realAiRequested && initialStatus?.tryOnEnabled && !requestedUrl.includes("github.io"));
-if (!expectRealTryOn && initialStatus?.tryOnEnabled && !process.env.QA_URL) {
-  const url = new URL(requestedUrl);
-  url.searchParams.set("qa_static", "1");
-  appUrl = url.href;
-}
+assert(initialStatus?.tryOnEnabled, "Real Vertex try-on backend is not enabled for browser QA.");
+assert(initialStatus?.videoEnabled, "Real Veo video backend is not enabled for browser QA.");
 
 const chrome = spawn(chromePath, [
   "--headless=new",
@@ -187,7 +192,8 @@ async function waitFor(name, expression, timeoutMs = 12000) {
     await sleep(250);
   }
   const text = await evaluate("document.body ? document.body.innerText.slice(0, 1200) : ''").catch(() => "");
-  throw new Error(`Timed out waiting for ${name}. Last page text: ${text}`);
+  const state = await evaluate("window.__COMPANION_QA_STATE__ || null").catch(() => null);
+  throw new Error(`Timed out waiting for ${name}. Last state: ${JSON.stringify(state)}. Last page text: ${text}`);
 }
 
 async function click(selector, label = selector) {
@@ -290,34 +296,41 @@ try {
   await click('[data-action="open-gallery"]', "Upload Image");
   await waitFor("mobile gallery", `document.body.innerText.includes("Choose a real image for your Senior Stylist read") && document.body.innerHTML.includes("real-model-stadium.jpg")`);
   await click('[data-gallery-image="real-model-stadium"]', "real model gallery tile");
-  await waitFor("style read and suggestions", `(() => {
-    const text = document.body.innerText.toLowerCase();
-    return text.includes("style read complete") && text.includes("suggested products based on upload");
-  })()`, expectRealTryOn ? 70000 : 25000);
+	  await waitFor("style read and suggestions", `(() => {
+	    const text = document.body.innerText.toLowerCase();
+	    return text.includes("style read complete") && text.includes("suggested products based on upload");
+	  })()`, 70000);
 
   await click('[data-action="auto-suggest"]', "Auto Suggest From Upload");
   await waitFor("PDP Create Lookbook", `document.body.innerText.includes("Create Lookbook") && Boolean(document.querySelector(".pdp-hero"))`);
 
-  await click('[data-action="start-draping"]', "Create Lookbook");
-  await waitFor("rendering or result state", `document.body.innerText.includes("Senior Stylist is creating this Lookbook") || document.body.innerText.includes("saved to Lookbook")`, 8000);
-  await waitFor("rendered Lookbook result", `document.body.innerText.includes("saved to Lookbook") && document.body.innerText.includes("Generate Lookbook Video")`, expectRealTryOn ? 180000 : 30000);
-  const renderMode = await evaluate(`(() => {
-    const text = document.body.innerText;
-    if (text.includes("AI Lookbook image created and saved")) return "vertex-try-on";
-    if (text.includes("Using the mapped catalogue look")) return "mapped-fallback";
-    return "rendered";
-  })()`);
-  if (expectRealTryOn) {
-    assert(renderMode === "vertex-try-on", `Expected Vertex try-on image, received ${renderMode}`);
-  }
+	  await click('[data-action="start-draping"]', "Create Lookbook");
+	  await waitFor("rendering or result state", `document.body.innerText.includes("Senior Stylist is creating this Lookbook") || document.body.innerText.includes("saved to Lookbook")`, 8000);
+	  await waitFor("rendered Lookbook result", `document.body.innerText.includes("saved to Lookbook") && document.body.innerText.includes("Generate Lookbook Video")`, 180000);
+	  const renderMode = await evaluate(`(() => {
+	    const text = document.body.innerText;
+	    if (text.includes("Real Vertex VTO Lookbook image created and saved")) return "vertex-try-on";
+	    return "rendered";
+	  })()`);
+	  assert(renderMode === "vertex-try-on", `Expected Vertex try-on image, received ${renderMode}`);
 
-  await click('[data-action="generate-video"]', "Generate Lookbook Video");
-  await waitFor("browser-generated video panel", `document.body.innerText.includes("Video Ready") && Boolean(document.querySelector(".video-thumb video"))`, 35000);
-  videoProbe = await evaluate(`(() => ({
-    ready: document.body.innerText.includes("Video Ready"),
-    hasVideo: Boolean(document.querySelector(".video-thumb video")),
-    message: document.querySelector(".video-copy p")?.textContent.trim() || ""
-  }))()`);
+	  await click('[data-action="generate-video"]', "Generate Lookbook Video");
+	  await waitFor("real Veo video panel", `(() => {
+	    const qaState = window.__COMPANION_QA_STATE__ || {};
+	    return qaState.videoStatus === "ready" &&
+	      qaState.videoMode === "vertex" &&
+	      Boolean(qaState.videoUrl) &&
+	      Boolean(document.querySelector(".video-thumb video"));
+	  })()`, 210000);
+	  videoProbe = await evaluate(`(() => ({
+	    ready: document.body.innerText.includes("Video Ready"),
+	    hasVideo: Boolean(document.querySelector(".video-thumb video")),
+	    mode: document.querySelector(".video-copy p")?.textContent.includes("Vertex generated") ? "vertex" : "",
+	    message: document.querySelector(".video-copy p")?.textContent.trim() || "",
+	    src: document.querySelector(".video-thumb video")?.getAttribute("src") || ""
+	  }))()`);
+	  assert(videoProbe.ready && videoProbe.hasVideo, "Expected a playable Veo-generated video element.");
+	  assert(videoProbe.mode === "vertex", `Expected Vertex video message, got ${videoProbe.message}`);
   await click('[data-action="open-lookbook"]', "Lookbook action");
   await waitFor("curated Lookbook library", `(() => {
     const text = document.body.innerText.toLowerCase();
@@ -341,12 +354,17 @@ try {
   assert(metrics.bottomVisible, "Bottom navigation is not visible/aligned at the mobile viewport bottom.");
 
   console.log(JSON.stringify({
-    ok: true,
-    appUrl,
-    expectedRealTryOn: expectRealTryOn,
-    renderMode,
-    videoMode: videoProbe.hasVideo ? "browser-clip" : videoProbe.ready ? "ready" : "preview-or-generating",
-    videoProbe,
+	    ok: true,
+	    appUrl,
+	    backend: {
+	      tryOnEnabled: initialStatus.tryOnEnabled,
+	      videoEnabled: initialStatus.videoEnabled,
+	      modelId: initialStatus.modelId,
+	      tryOnModelId: initialStatus.tryOnModelId,
+	    },
+	    renderMode,
+	    videoMode: videoProbe.mode,
+	    videoProbe,
     libraryCreateControls,
     deadButtons: metrics.deadButtons.length,
     viewport: {

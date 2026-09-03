@@ -19,7 +19,7 @@ const config = {
   outputGcsUri: process.env.VERTEX_OUTPUT_GCS_URI || "",
   tryOnOutputGcsUri: process.env.VERTEX_TRYON_OUTPUT_GCS_URI || process.env.VERTEX_OUTPUT_GCS_URI || "",
   resolution: process.env.VERTEX_VIDEO_RESOLUTION || "720p",
-  enableVideo: process.env.VERTEX_ENABLE_VIDEO === "true",
+  enableVideo: process.env.VERTEX_ENABLE_VIDEO !== "false",
   enableTryOn: process.env.VERTEX_ENABLE_TRYON !== "false",
   enableAnalysis: process.env.VERTEX_ENABLE_ANALYSIS !== "false",
   maxWaitMs: Number(process.env.VERTEX_VIDEO_MAX_WAIT_MS || 150000),
@@ -40,11 +40,21 @@ const mimeTypes = {
 let serviceAccountCache;
 let tokenCache;
 
+function corsHeaders(headers = {}) {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,HEAD,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Private-Network": "true",
+    ...headers,
+  };
+}
+
 function sendJson(res, statusCode, body) {
-  res.writeHead(statusCode, {
+  res.writeHead(statusCode, corsHeaders({
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
-  });
+  }));
   res.end(JSON.stringify(body));
 }
 
@@ -153,6 +163,10 @@ function mimeTypeFor(filePath) {
   throw new Error("Only PNG and JPEG images are supported for video generation");
 }
 
+function extensionForMimeType(mimeType = "image/png") {
+  return mimeType === "image/jpeg" ? "jpg" : "png";
+}
+
 function imagePayloadFromDataUrl(dataUrl, label = "Image") {
   const match = String(dataUrl || "").match(/^data:(image\/(?:png|jpeg));base64,(.+)$/);
   if (!match) {
@@ -162,7 +176,15 @@ function imagePayloadFromDataUrl(dataUrl, label = "Image") {
 }
 
 async function imagePayloadFromStaticPath(rawPath, label = "Image") {
-  const rawImagePath = String(rawPath || "").split("?")[0].replace(/^\.\//, "");
+  let rawImagePath = String(rawPath || "").split("?")[0].replace(/^\.\//, "");
+  try {
+    const parsed = new URL(rawImagePath);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      rawImagePath = parsed.pathname;
+    }
+  } catch {
+    // Keep ordinary relative/static paths as-is.
+  }
   if (!rawImagePath) throw new Error(`Missing ${label} path`);
   const safeRelativePath = rawImagePath.replace(/^\/+/, "");
   const resolved = path.resolve(STATIC_ROOT, safeRelativePath);
@@ -193,11 +215,15 @@ async function imagePayloadFromRequest(body) {
     return imagePayloadFromDataUrl(body.imageDataUrl, "Uploaded image");
   }
 
+  if (body.imageUri && String(body.imageUri).startsWith("gs://")) {
+    return { gcsUri: body.imageUri, mimeType: body.mimeType || "image/png" };
+  }
+
   if (body.imagePath) {
     return imagePayloadFromStaticPath(body.imagePath, "Image");
   }
 
-  throw new Error("Missing imagePath or imageDataUrl");
+  throw new Error("Missing imagePath, imageUri or imageDataUrl");
 }
 
 function tryOnOutputPrefix() {
@@ -217,15 +243,16 @@ function composeProductDescription(product = {}) {
   ].filter(Boolean).join(", ");
 }
 
-function inferLaneFromText(value = "", fallbackGender = "male") {
+function inferLaneFromText(value = "", requestedGenderLane = "male") {
   const text = String(value).toLowerCase();
   if (/\b(female|woman|women|girl|lady|ladies|her|she|kurta|saree|dress|ethnic|avaasa)\b/.test(text)) return "female";
   if (/\b(male|man|men|boy|him|he|shirt|tee|polo|bomber|trouser|teamspirit|netplay|performax)\b/.test(text)) return "male";
-  return fallbackGender === "female" ? "female" : "male";
+  return requestedGenderLane === "female" ? "female" : "male";
 }
 
 function inferCategoryFromText(value = "") {
   const text = String(value).toLowerCase();
+  if (/live moment|stadium|match|concert/.test(text)) return "Live Moment";
   if (/office|work|meeting|presentation/.test(text)) return "Office";
   if (/formal|interview|event/.test(text)) return "Formal";
   if (/date|dinner|anniversary|party/.test(text)) return "Date";
@@ -233,20 +260,21 @@ function inferCategoryFromText(value = "") {
   if (/ethnic|festive|kurta|saree|wedding|celebration|function/.test(text)) return "Ethnic";
   if (/resort|vacay|holiday/.test(text)) return "Resort";
   if (/travel|airport|trip|commute/.test(text)) return "Travel";
+  if (/casual|everyday|shirt|tee|polo|denim/.test(text)) return "Casual";
   return "";
 }
 
-function fallbackUploadAnalysis(body = {}) {
-  const text = `${body.title || ""} ${body.meta || ""} ${body.fallbackGender || ""}`;
-  const lane = inferLaneFromText(text, body.fallbackGender);
+function defaultUploadAnalysis(body = {}) {
+  const requestedGenderLane = body.requestedGenderLane || "";
+  const text = `${body.title || ""} ${body.meta || ""} ${requestedGenderLane}`;
+  const lane = inferLaneFromText(text, requestedGenderLane);
   const preferredCategory = inferCategoryFromText(text) || "Casual";
   return {
-    mode: "local-fallback",
     recommendedGenderLane: lane,
     preferredCategory,
     confidence: 0.58,
     tags: [preferredCategory, lane === "female" ? "Women Topwear" : "Men Topwear"],
-    note: `${lane === "female" ? "Female" : "Male"} catalogue lane unlocked from upload signals. Choose a PDP to drape next.`,
+    note: `${lane === "female" ? "Female" : "Male"} catalogue lane unlocked from upload signals. Choose a PDP to build the Lookbook next.`,
   };
 }
 
@@ -265,22 +293,31 @@ function parseJsonish(text = "") {
   }
 }
 
-function normalizeUploadAnalysis(raw = {}, fallback = fallbackUploadAnalysis()) {
-  const lane = raw.recommendedGenderLane === "female" || raw.genderLane === "female"
+function normalizeUploadAnalysis(raw = {}, defaults = defaultUploadAnalysis()) {
+  const laneText = String(raw.recommendedGenderLane || raw.genderLane || "").toLowerCase();
+  const lane = /\b(female|woman|women)\b/.test(laneText)
     ? "female"
-    : raw.recommendedGenderLane === "male" || raw.genderLane === "male"
+    : /\b(male|man|men)\b/.test(laneText)
       ? "male"
-      : fallback.recommendedGenderLane;
-  const category = inferCategoryFromText(raw.preferredCategory || raw.occasion || (raw.tags || []).join(" ")) || fallback.preferredCategory;
+      : defaults.recommendedGenderLane;
+  const category = inferCategoryFromText(raw.preferredCategory || raw.occasion || (raw.tags || []).join(" ")) || defaults.preferredCategory;
+  const confidenceText = String(raw.confidence || "").toLowerCase();
   const confidence = Number(raw.confidence);
+  const confidenceFromText = confidenceText.includes("high")
+    ? 0.88
+    : confidenceText.includes("medium")
+      ? 0.68
+      : confidenceText.includes("low")
+        ? 0.45
+        : defaults.confidence;
   return {
     mode: raw.mode || "vertex-analysis",
     recommendedGenderLane: lane,
     preferredCategory: category,
     occasion: raw.occasion || "",
-    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence > 1 ? confidence / 100 : confidence)) : fallback.confidence,
-    tags: Array.isArray(raw.tags) ? raw.tags.slice(0, 6) : fallback.tags,
-    note: raw.note || fallback.note,
+    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence > 1 ? confidence / 100 : confidence)) : confidenceFromText,
+    tags: Array.isArray(raw.tags) ? raw.tags.slice(0, 6) : defaults.tags,
+    note: raw.note || defaults.note,
   };
 }
 
@@ -290,8 +327,12 @@ function extractGeminiText(response = {}) {
 }
 
 async function analyzeUploadImage(body) {
-  const fallback = fallbackUploadAnalysis(body);
-  if (!config.enableAnalysis) return fallback;
+  const defaults = defaultUploadAnalysis(body);
+  if (!config.enableAnalysis) {
+    const error = new Error("Vertex image analysis is disabled. Set VERTEX_ENABLE_ANALYSIS=true or remove the disable flag.");
+    error.statusCode = 503;
+    throw error;
+  }
 
   try {
     await loadServiceAccount();
@@ -302,7 +343,8 @@ async function analyzeUploadImage(body) {
       "This is a catalogue-routing recommendation only, not a claim about gender identity.",
       "Also choose one preferredCategory from: Live Moment, Office, Date, Casual, Sport Wear, Ethnic, Resort, Formal, Travel, Celebration.",
       "Respect guardrails: adult shopper only, no fit guarantee, no body judgments, no sensitive identity claims.",
-      "Return compact JSON only with keys: recommendedGenderLane, preferredCategory, occasion, confidence, tags, note.",
+      "Return valid compact JSON only. Keep note under 18 words and tags to 4 items.",
+      "Schema: {\"recommendedGenderLane\":\"male|female\",\"preferredCategory\":\"Live Moment|Office|Date|Casual|Sport Wear|Ethnic|Resort|Formal|Travel|Celebration\",\"occasion\":\"short phrase\",\"confidence\":0.0,\"tags\":[\"tag\"],\"note\":\"short shopper-safe note\"}",
     ].join(" ");
     const response = await requestGoogleJson(
       publisherModelUrl(config.analysisModelId, "generateContent"),
@@ -313,34 +355,31 @@ async function analyzeUploadImage(body) {
             parts: [
               { text: prompt },
               {
-                inlineData: {
-                  mimeType: image.mimeType,
+                inline_data: {
+                  mime_type: image.mimeType,
                   data: image.bytesBase64Encoded,
                 },
               },
             ],
           },
         ],
-        generationConfig: {
-          responseMimeType: "application/json",
+        generation_config: {
+          response_mime_type: "application/json",
           temperature: 0.15,
-          maxOutputTokens: 512,
+          max_output_tokens: 1024,
         },
       },
     );
     const raw = parseJsonish(extractGeminiText(response));
     if (!raw || Object.keys(raw).length === 0) {
-      return {
-        ...fallback,
-        message: "Vertex analysis returned no usable JSON; using local catalogue routing fallback.",
-      };
+      const error = new Error("Vertex analysis returned no usable JSON.");
+      error.statusCode = 502;
+      throw error;
     }
-    return normalizeUploadAnalysis(raw, fallback);
+    return normalizeUploadAnalysis(raw, defaults);
   } catch (error) {
-    return {
-      ...fallback,
-      message: error.message,
-    };
+    if (!error.statusCode) error.statusCode = 502;
+    throw error;
   }
 }
 
@@ -394,7 +433,15 @@ function buildTryOnRequest(body, personImage, productImage) {
   };
 }
 
-function extractTryOnImageResult(response) {
+async function writeGeneratedImage(bytes, mimeType) {
+  const outputDir = path.join(STATIC_ROOT, "generated-images");
+  await mkdir(outputDir, { recursive: true });
+  const fileName = `lookbook-image-${Date.now()}.${extensionForMimeType(mimeType)}`;
+  await writeFile(path.join(outputDir, fileName), Buffer.from(bytes, "base64"));
+  return `/generated-images/${fileName}`;
+}
+
+async function extractTryOnImageResult(response) {
   const predictions = Array.isArray(response?.predictions) ? response.predictions : [];
   for (const prediction of predictions) {
     const containers = [
@@ -416,8 +463,11 @@ function extractTryOnImageResult(response) {
         const bytes = image?.bytesBase64Encoded || image?.bytesBase64 || "";
         if (bytes) {
           const mimeType = image?.mimeType || "image/png";
+          const imageUrl = await writeGeneratedImage(bytes, mimeType);
           return {
-            imageDataUrl: `data:${mimeType};base64,${bytes}`,
+            imageDataUrl: "",
+            imageUrl,
+            imagePath: imageUrl,
             mimeType,
             imageUri: "",
           };
@@ -444,13 +494,9 @@ function publisherModelUrl(modelId, method) {
 async function generateVertexTryOnImage(body) {
   await loadServiceAccount();
   if (!config.enableTryOn) {
-    return {
-      mode: "mock",
-      status: "mock_ready",
-      imageDataUrl: "",
-      imageUri: "",
-      message: "Virtual draping endpoint is wired. Set VERTEX_ENABLE_TRYON=true to run Vertex VTO.",
-    };
+    const error = new Error("Vertex virtual try-on is disabled. Set VERTEX_ENABLE_TRYON=true or remove the disable flag.");
+    error.statusCode = 503;
+    throw error;
   }
 
   const personImage = await imagePayloadFromSource({
@@ -465,11 +511,11 @@ async function generateVertexTryOnImage(body) {
     publisherModelUrl(config.tryOnModelId, "predict"),
     buildTryOnRequest(body, personImage, productImage),
   );
-  const imageResult = extractTryOnImageResult(response);
+  const imageResult = await extractTryOnImageResult(response);
   return {
     mode: "vertex-try-on",
     status: "done",
-    message: imageResult.imageDataUrl
+    message: imageResult.imageUrl || imageResult.imageDataUrl
       ? "AI virtual draping image generated."
       : "AI virtual draping image generated in Cloud Storage.",
     ...imageResult,
@@ -576,12 +622,9 @@ async function generateVertexVideo(body) {
   const prompt = composeLookbookPrompt(body);
 
   if (!config.enableVideo) {
-    return {
-      mode: "mock",
-      status: "mock_ready",
-      message:
-        "Vertex credential is wired server-side. Set VERTEX_ENABLE_VIDEO=true and VERTEX_OUTPUT_GCS_URI to run Veo.",
-    };
+    const error = new Error("Vertex Veo generation is disabled. Set VERTEX_ENABLE_VIDEO=true or remove the disable flag.");
+    error.statusCode = 503;
+    throw error;
   }
 
   const operation = await requestGoogleJson(
@@ -597,6 +640,12 @@ async function generateVertexVideo(body) {
   }
 
   const { videoUri, videoUrl } = await extractVideoResult(current);
+  if (current.done && !videoUri && !videoUrl) {
+    const error = new Error("Vertex Veo completed without returning a video.");
+    error.statusCode = 502;
+    throw error;
+  }
+
   return {
     mode: "vertex",
     status: current.done ? "done" : "running",
@@ -636,7 +685,7 @@ async function serveStatic(req, res) {
   const requested = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname);
   const resolved = path.resolve(STATIC_ROOT, requested.replace(/^\/+/, ""));
   if (!resolved.startsWith(`${STATIC_ROOT}${path.sep}`)) {
-    res.writeHead(403).end("Forbidden");
+    res.writeHead(403, corsHeaders({ "Content-Type": "text/plain; charset=utf-8" })).end("Forbidden");
     return;
   }
 
@@ -644,19 +693,25 @@ async function serveStatic(req, res) {
     const fileStat = await stat(resolved);
     if (!fileStat.isFile()) throw new Error("Not a file");
     const type = mimeTypes[path.extname(resolved).toLowerCase()] || "application/octet-stream";
-    res.writeHead(200, {
+    res.writeHead(200, corsHeaders({
       "Content-Type": type,
       "Cache-Control": type.startsWith("text/html") ? "no-store" : "public, max-age=60",
-    });
+    }));
     createReadStream(resolved).pipe(res);
   } catch {
-    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.writeHead(404, corsHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
     res.end("Not found");
   }
 }
 
 const server = createServer(async (req, res) => {
   try {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, corsHeaders());
+      res.end();
+      return;
+    }
+
     if (req.method === "GET" && req.url?.startsWith("/api/vertex/status")) {
       sendJson(res, 200, await vertexStatus());
       return;
@@ -685,12 +740,14 @@ const server = createServer(async (req, res) => {
       const body = await readRequestJson(req);
       if (!body.operationName) throw new Error("Missing operationName");
       const operation = await fetchVideoOperation(body.operationName);
+      const media = operation.done ? await extractVideoResult(operation) : { videoUri: "", videoUrl: "" };
       sendJson(res, 200, {
         mode: "vertex",
         status: operation.done ? "done" : "running",
         operationName: operation.name,
-        videoUri: videoUriFromOperation(operation),
-        message: operation.done ? "Vertex operation completed." : "Vertex operation is still running.",
+        videoUri: media.videoUri || videoUriFromOperation(operation),
+        videoUrl: media.videoUrl || "",
+        message: operation.done ? "Vertex generated the lookbook video." : "Vertex video generation is still running.",
       });
       return;
     }
@@ -700,7 +757,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    res.writeHead(405, { "Content-Type": "text/plain; charset=utf-8" });
+    res.writeHead(405, corsHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
     res.end("Method not allowed");
   } catch (error) {
     sendJson(res, error.statusCode || 500, { error: publicError(error) });
@@ -709,5 +766,5 @@ const server = createServer(async (req, res) => {
 
 server.listen(config.port, () => {
   console.log(`Companion prototype: http://127.0.0.1:${config.port}/`);
-  console.log(`Vertex video enabled: ${config.enableVideo ? "yes" : "no, mock mode"}`);
+  console.log(`Vertex video enabled: ${config.enableVideo ? "yes" : "no"}`);
 });

@@ -6,5 +6,7 @@ service-account*.json
 fynd-*.json
 generated-videos/*
 !generated-videos/.gitkeep
+generated-images/*
+!generated-images/.gitkeep
 *.log
 node_modules/
