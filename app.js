@@ -1231,6 +1231,7 @@ const state = {
   videoStatus: "idle",
   videoUri: "",
   videoUrl: "",
+  videoObjectUrl: "",
   videoMode: "",
   videoOperationName: "",
   videoMessage: "",
@@ -1329,9 +1330,13 @@ function currentRenderedImage(product = renderedProduct()) {
 }
 
 function clearVideoState() {
+  if (state.videoObjectUrl && window.URL && window.URL.revokeObjectURL) {
+    window.URL.revokeObjectURL(state.videoObjectUrl);
+  }
   state.videoStatus = "idle";
   state.videoUri = "";
   state.videoUrl = "";
+  state.videoObjectUrl = "";
   state.videoMode = "";
   state.videoOperationName = "";
   state.videoMessage = "";
@@ -1513,7 +1518,8 @@ function escapeHTML(value) {
 }
 
 function isStaticPrototypeHost() {
-  return window.location.protocol === "file:" || window.location.hostname.endsWith("github.io");
+  const search = String(window.location.search || "");
+  return window.location.protocol === "file:" || window.location.hostname.endsWith("github.io") || search.includes("qa_static=1");
 }
 
 function filteredProducts() {
@@ -2149,6 +2155,180 @@ function videoPrompt(product) {
   return reverseLookbookPrompt(product);
 }
 
+function browserVideoSupported() {
+  return (
+    typeof document !== "undefined" &&
+    typeof document.createElement === "function" &&
+    typeof window !== "undefined" &&
+    typeof window.MediaRecorder !== "undefined" &&
+    typeof HTMLCanvasElement !== "undefined" &&
+    Boolean(HTMLCanvasElement.prototype.captureStream)
+  );
+}
+
+function waitFrame(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function loadLookbookVideoImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not load Lookbook image for video"));
+    if (/^https?:\/\//.test(String(src || ""))) image.crossOrigin = "anonymous";
+    image.src = src;
+  });
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + safeRadius, y);
+  ctx.lineTo(x + width - safeRadius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  ctx.lineTo(x + width, y + height - safeRadius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  ctx.lineTo(x + safeRadius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  ctx.lineTo(x, y + safeRadius);
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+  ctx.closePath();
+}
+
+function drawContainedImage(ctx, image, box, progress, cameraId) {
+  const baseScale = Math.min(box.width / image.naturalWidth, box.height / image.naturalHeight);
+  const direction = cameraId === "side-step-freeze" ? Math.sin(progress * Math.PI) * 10 : 0;
+  const zoom = cameraId === "hero-push-in" ? 1 + progress * 0.055 : 1 + Math.sin(progress * Math.PI) * 0.025;
+  const width = image.naturalWidth * baseScale * zoom;
+  const height = image.naturalHeight * baseScale * zoom;
+  const x = box.x + (box.width - width) / 2 + direction;
+  const y = box.y + (box.height - height) / 2 - (cameraId === "detail-to-full-body" ? (1 - progress) * 26 : 0);
+  ctx.save();
+  drawRoundedRect(ctx, box.x, box.y, box.width, box.height, 8);
+  ctx.clip();
+  ctx.fillStyle = "#e9e3da";
+  ctx.fillRect(box.x, box.y, box.width, box.height);
+  ctx.drawImage(image, x, y, width, height);
+  ctx.restore();
+}
+
+function drawLookbookVideoFrame(ctx, image, product, environment, cameraMove, style, progress) {
+  const width = ctx.canvas.width;
+  const height = ctx.canvas.height;
+  const accent = style.accent || "#d6a074";
+  ctx.fillStyle = "#f7efe1";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = accent;
+  ctx.globalAlpha = 0.16;
+  ctx.fillRect(0, 0, width, Math.round(height * 0.34));
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = "#202020";
+  ctx.font = "900 18px Mulish, Arial, sans-serif";
+  ctx.fillText("AI LOOKBOOK", 24, 38);
+  ctx.fillStyle = "#666666";
+  ctx.font = "800 10px Mulish, Arial, sans-serif";
+  ctx.fillText("SENIOR STYLIST", 24, 54);
+
+  drawContainedImage(ctx, image, { x: 24, y: 72, width: 312, height: 438 }, progress, cameraMove.id);
+
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  drawRoundedRect(ctx, 24, 524, 312, 86, 8);
+  ctx.fill();
+  ctx.fillStyle = "#202020";
+  ctx.font = "900 17px Mulish, Arial, sans-serif";
+  ctx.fillText(style.label.slice(0, 26), 42, 552);
+  ctx.font = "800 12px Mulish, Arial, sans-serif";
+  ctx.fillText(`${product.brand} - ${product.name}`.slice(0, 34), 42, 574);
+  ctx.fillStyle = "#666666";
+  ctx.font = "700 11px Mulish, Arial, sans-serif";
+  ctx.fillText(`${environment.label} - ${cameraMove.label}`.slice(0, 38), 42, 594);
+
+  ctx.fillStyle = "#ded3bf";
+  drawRoundedRect(ctx, 24, 622, 312, 6, 999);
+  ctx.fill();
+  ctx.fillStyle = "#202020";
+  drawRoundedRect(ctx, 24, 622, Math.max(18, 312 * progress), 6, 999);
+  ctx.fill();
+}
+
+async function createBrowserLookbookVideo(product, environment, cameraMove, style, renderedImage) {
+  if (!browserVideoSupported()) throw new Error("Browser video capture is unavailable");
+  const canvas = document.createElement("canvas");
+  canvas.width = 360;
+  canvas.height = 640;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas rendering is unavailable");
+  const image = await loadLookbookVideoImage(renderedImage);
+  const stream = canvas.captureStream(24);
+  const preferredType = window.MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+    ? "video/webm;codecs=vp9"
+    : window.MediaRecorder.isTypeSupported("video/webm")
+      ? "video/webm"
+      : "";
+  const chunks = [];
+  const recorder = new window.MediaRecorder(stream, {
+    ...(preferredType ? { mimeType: preferredType } : {}),
+    videoBitsPerSecond: 1800000,
+  });
+  const done = new Promise((resolve, reject) => {
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size) chunks.push(event.data);
+    };
+    recorder.onerror = () => reject(new Error("Browser Lookbook video recording failed"));
+    recorder.onstop = resolve;
+  });
+  recorder.start(100);
+  const frames = 84;
+  for (let frame = 0; frame <= frames; frame += 1) {
+    const progress = frame / frames;
+    drawLookbookVideoFrame(ctx, image, product, environment, cameraMove, style, progress);
+    await waitFrame(1000 / 24);
+  }
+  recorder.stop();
+  await done;
+  const type = preferredType || chunks[0]?.type || "video/webm";
+  const blob = new Blob(chunks, { type });
+  if (!blob.size) throw new Error("Browser Lookbook video was empty");
+  return {
+    videoUrl: window.URL.createObjectURL(blob),
+    videoUri: `browser-lookbook-${product.id}-${Date.now()}.webm`,
+    message: "Playable Lookbook video created in this browser from the selected image, style and camera direction.",
+  };
+}
+
+async function useBrowserLookbookVideo(product, environment, cameraMove, style, renderedImage, reason) {
+  try {
+    const clip = await createBrowserLookbookVideo(product, environment, cameraMove, style, renderedImage);
+    if (state.videoObjectUrl && window.URL && window.URL.revokeObjectURL) {
+      window.URL.revokeObjectURL(state.videoObjectUrl);
+    }
+    state.videoObjectUrl = clip.videoUrl;
+    state.videoUrl = clip.videoUrl;
+    state.videoUri = clip.videoUri;
+    state.videoMode = "browser-clip";
+    state.videoStatus = "ready";
+    state.videoMessage = reason ? `${clip.message} ${reason}` : clip.message;
+    state.videoOperationName = "";
+    render();
+    flash("Lookbook video ready");
+    return true;
+  } catch (error) {
+    if (state.videoObjectUrl && window.URL && window.URL.revokeObjectURL) {
+      window.URL.revokeObjectURL(state.videoObjectUrl);
+    }
+    state.videoStatus = "demo";
+    state.videoMode = "local";
+    state.videoUrl = "";
+    state.videoUri = "";
+    state.videoObjectUrl = "";
+    state.videoMessage = `${reason || "Video generation is unavailable."} ${error.message}`;
+    render();
+    flash("Video preview flow shown");
+    return false;
+  }
+}
+
 async function generateLookbookVideo() {
   if (state.renderStatus !== "rendered") {
     flash("Create a Lookbook first");
@@ -2187,8 +2367,12 @@ async function generateLookbookVideo() {
     payload.imagePath = renderedImage;
   }
   state.videoStatus = "generating";
+  if (state.videoObjectUrl && window.URL && window.URL.revokeObjectURL) {
+    window.URL.revokeObjectURL(state.videoObjectUrl);
+  }
   state.videoUri = "";
   state.videoUrl = "";
+  state.videoObjectUrl = "";
   state.videoMode = "";
   state.videoOperationName = "";
   state.videoMessage = `Creating ${style.label} lookbook video`;
@@ -2207,6 +2391,10 @@ async function generateLookbookVideo() {
     if (!response.ok) {
       throw new Error(data.error || "Video generation failed");
     }
+    if (data.mode === "mock" || data.status === "mock_ready") {
+      await useBrowserLookbookVideo(product, environment, cameraMove, style, renderedImage, data.message);
+      return;
+    }
     state.videoMode = data.mode || "vertex";
     state.videoOperationName = data.operationName || "";
     state.videoUri = data.videoUri || "";
@@ -2216,13 +2404,10 @@ async function generateLookbookVideo() {
     render();
     flash(state.videoMode === "mock" ? "Video flow ready" : "Vertex video ready");
   } catch (error) {
-    state.videoStatus = "demo";
-    state.videoMode = "local";
-    state.videoMessage = isStaticPrototypeHost()
-      ? "Static prototype shows the lookbook video preview flow. Run the local server to connect Vertex video generation."
+    const reason = isStaticPrototypeHost()
+      ? "Static prototype generated this clip locally because private Vertex credentials cannot run on GitHub Pages."
       : error.message;
-    render();
-    flash("Video preview flow shown");
+    await useBrowserLookbookVideo(product, environment, cameraMove, style, renderedImage, reason);
   }
 }
 

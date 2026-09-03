@@ -1,6 +1,6 @@
 # QA Report
 
-Date: 2026-09-04 00:31 IST
+Date: 2026-09-04 00:49 IST
 
 ## Scope
 
@@ -24,7 +24,7 @@ Release sanity for the Companion AI Lookbook prototype:
 - Upload state: passed. Upload unlocks suggested products and does not auto-trigger Surprise Me.
 - PDP state: passed. Auto suggestion opens a real PDP, not the preview item, and shows the Lookbook progress rail.
 - Lookbook creation state: passed. PDP creates the Lookbook result screen.
-- Static shareable fallback: passed. GitHub Pages uses the mapped catalogue Lookbook result and saves it so the journey does not break.
+- Static shareable fallback: passed. GitHub Pages uses the mapped catalogue Lookbook result, saves it, and creates a browser-generated Lookbook video so the journey does not break.
 - Bag state: passed. Bag badge starts at 0 and updates after Add To Bag.
 - Profile state: passed. Account/Profile shows saved looks and bag count.
 - Lookbook state: passed. Saved looks render, reopen and remove correctly.
@@ -34,6 +34,7 @@ Release sanity for the Companion AI Lookbook prototype:
 - Local Vertex Lookbook image creation: passed. `/api/generate-tryon-image` returned `mode: "vertex-try-on"`, `status: "done"` and a generated image payload.
 - Browser real-AI state: passed. The UI completed upload, style read, PDP, Create Lookbook, Vertex-generated image result, video preview, Lookbook library, female PDP route and Bag update.
 - Local video endpoint: wired. It returns mock-ready until `VERTEX_ENABLE_VIDEO=true` and `VERTEX_OUTPUT_GCS_URI` are configured.
+- Browser Lookbook video: passed. Public/static and local real-AI browser QA both produced a playable `<video>` element from the selected/generated Lookbook image.
 
 ## Fixes Made During QA
 

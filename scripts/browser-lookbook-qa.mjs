@@ -46,11 +46,13 @@ async function maybeVertexStatus(url) {
 }
 
 let appUrl = requestedUrl;
+let videoProbe = { ready: false, hasVideo: false, message: "" };
 const initialStatus = await maybeVertexStatus(requestedUrl);
-const staticFileUrl = new URL("../index.html", import.meta.url).href;
 const expectRealTryOn = Boolean(realAiRequested && initialStatus?.tryOnEnabled && !requestedUrl.includes("github.io"));
 if (!expectRealTryOn && initialStatus?.tryOnEnabled && !process.env.QA_URL) {
-  appUrl = staticFileUrl;
+  const url = new URL(requestedUrl);
+  url.searchParams.set("qa_static", "1");
+  appUrl = url.href;
 }
 
 const chrome = spawn(chromePath, [
@@ -310,7 +312,12 @@ try {
   }
 
   await click('[data-action="generate-video"]', "Generate Lookbook Video");
-  await waitFor("video panel", `document.body.innerText.includes("Preview Mode") || document.body.innerText.includes("Video Ready") || document.body.innerText.includes("Generating")`, 20000);
+  await waitFor("browser-generated video panel", `document.body.innerText.includes("Video Ready") && Boolean(document.querySelector(".video-thumb video"))`, 35000);
+  videoProbe = await evaluate(`(() => ({
+    ready: document.body.innerText.includes("Video Ready"),
+    hasVideo: Boolean(document.querySelector(".video-thumb video")),
+    message: document.querySelector(".video-copy p")?.textContent.trim() || ""
+  }))()`);
   await click('[data-action="open-lookbook"]', "Lookbook action");
   await waitFor("curated Lookbook library", `(() => {
     const text = document.body.innerText.toLowerCase();
@@ -338,7 +345,8 @@ try {
     appUrl,
     expectedRealTryOn: expectRealTryOn,
     renderMode,
-    videoMode: metrics.bodyText.includes("Video Ready") ? "ready" : "preview-or-generating",
+    videoMode: videoProbe.hasVideo ? "browser-clip" : videoProbe.ready ? "ready" : "preview-or-generating",
+    videoProbe,
     libraryCreateControls,
     deadButtons: metrics.deadButtons.length,
     viewport: {

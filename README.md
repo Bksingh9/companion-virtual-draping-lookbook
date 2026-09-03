@@ -27,7 +27,7 @@ Then open:
 http://127.0.0.1:4173/
 ```
 
-The GitHub Pages link is the shareable frontend prototype. It runs the full upload, suggestion, PDP, mapped Lookbook result, profile, bag, share, cast and video-preview journey without exposing any private Google credentials. Real Vertex image analysis, Lookbook image creation, and Veo video calls require the local Node server or another backend deployment.
+The GitHub Pages link is the shareable frontend prototype. It runs the full upload, suggestion, PDP, mapped Lookbook result, browser-generated Lookbook video, profile, bag, share and cast journey without exposing any private Google credentials. Real Vertex image analysis, Lookbook image creation, and Veo video calls require the local Node server or another backend deployment.
 
 Run the product-flow QA:
 
@@ -61,4 +61,4 @@ export VERTEX_TRYON_OUTPUT_GCS_URI="gs://your-bucket/path"
 export VERTEX_ANALYSIS_MODEL_ID="gemini-2.5-flash"
 ```
 
-If Vertex image analysis, Lookbook image generation, or video generation fails or is unavailable, the UI falls back to a graceful local recommendation or mapped catalogue look so the prototype journey does not break.
+If Vertex image analysis or Lookbook image generation fails or is unavailable, the UI falls back to a graceful local recommendation or mapped catalogue look so the prototype journey does not break. If Veo/GCS video is not configured, the browser generates a playable WebM Lookbook clip from the selected image, style and camera direction.
