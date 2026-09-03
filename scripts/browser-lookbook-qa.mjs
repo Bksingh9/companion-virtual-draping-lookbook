@@ -18,7 +18,7 @@ if (!chromePath) {
 }
 
 const requestedUrl = process.env.QA_URL || "http://127.0.0.1:4173/";
-const currentLiveApiBase = (process.env.QA_API_BASE || "https://ffdc1021246b22.lhr.life").replace(/\/+$/, "");
+const currentLiveApiBase = (process.env.QA_API_BASE || "https://6cc8facc8f01ab.lhr.life").replace(/\/+$/, "");
 const port = Number(process.env.QA_CDP_PORT || 9433 + Math.floor(Math.random() * 300));
 const profileDir = await mkdtemp(path.join(tmpdir(), "companion-chrome-qa-"));
 
